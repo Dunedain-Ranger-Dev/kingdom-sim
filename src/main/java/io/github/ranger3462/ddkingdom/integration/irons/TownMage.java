@@ -41,7 +41,7 @@ import net.minecraft.world.item.Items;
 import net.minecraft.world.level.Level;
 
 /**
- * A town battlemage (DD-98): a guard who fights with Iron's Spells, flinging firebolts and lightning at raiders while
+ * A town battlemage (KING-13): a guard who fights with Iron's Spells, flinging firebolts and lightning at raiders while
  * mending hurt guards, villagers and the players fighting for the town. A quarter of a bigger town's guards (see
  * {@code RealmLiveRaids}). Wears the town's skin setting and color like the other guards (in wizard robes, see
  * {@code GuardGear}); its spells

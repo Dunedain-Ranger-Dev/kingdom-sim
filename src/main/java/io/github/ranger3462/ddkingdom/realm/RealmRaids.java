@@ -7,17 +7,17 @@ import java.util.Optional;
 import net.minecraft.util.RandomSource;
 
 /**
- * Raids resolved by a roll (DD-96, docs/design/realm.md). A raid declared at a turn's dawn resolves at its dusk, half a
+ * Raids resolved by a roll (KING-11, docs/design/realm.md). A raid declared at a turn's dawn resolves at its dusk, half a
  * turn later: the attacking stronghold's military plus a d20, against the town's defense, plus a share of the kingdom's
  * army, plus a d20.
  * <ul>
  * <li>Attackers win: the town loses defense, wealth and morale, more for a bigger margin, and is owed block damage by the
- * margin (its {@code damage} stat, for the blueprints in DD-97). The attackers lose a little military, and a monster
+ * margin (its {@code damage} stat, for the blueprints in KING-12). The attackers lose a little military, and a monster
  * nation's gain {@link #plunder} for what they carried off. Sacked by
  * {@link #TIER_LOSS_MARGIN} or more, a town also falls back a tier, down to ruins (tier 0).</li>
  * <li>Defenders win: the attackers lose military, more for a bigger margin, and the town's morale rises.</li>
  * </ul>
- * A capital (DD-104) is sacked like a town, but never taken or knocked down a tier; its defense is doubled
+ * A capital (KING-1) is sacked like a town, but never taken or knocked down a tier; its defense is doubled
  * ({@link #CAPITAL_DEFENSE}), a monster capital's garrison adds to it, and a sacking costs it troops too.
  * <p>
  * A raid can also be to take a place ({@link #capturable}): a stronghold or site the nation doesn't hold, or a town
@@ -34,7 +34,7 @@ import net.minecraft.util.RandomSource;
 public final class RealmRaids {
     /** The share of the kingdom's army that turns out for a raided town: a quarter. */
     public static final int ARMY_SHARE = 4;
-    /** A sacking by this much or more knocks a town back a tier (DD-99). */
+    /** A sacking by this much or more knocks a town back a tier (KING-14). */
     public static final int TIER_LOSS_MARGIN = 10;
     /** What a monster nation's sacking adds to the raiding stronghold's military, for the wealth it took. */
     public static int plunder(int wealthLost) {
@@ -44,7 +44,7 @@ public final class RealmRaids {
     /** How many turns a faction that secures what it takes ({@code fortify_after_capture}) spends fortifying before it raids again. */
     public static final int SECURING_TURNS = 2;
 
-    /** A capital's defenders fight twice as hard (DD-104), so only a much stronger army tries. */
+    /** A capital's defenders fight twice as hard (KING-1), so only a much stronger army tries. */
     public static final int CAPITAL_DEFENSE = 2;
     /** The odds anyone wants before attacking a capital. */
     public static final double CAPITAL_ODDS = 0.85;
@@ -174,7 +174,7 @@ public final class RealmRaids {
                         ? RealmCapitals.CHAMPION_BONUS + RealmEconomy.arcane(realm, raid.nation()) : 0);
     }
 
-    /** What a nation attacks with from a place, before its roll or a champion: its military, by its {@code military_bonus} (DD-102). */
+    /** What a nation attacks with from a place, before its roll or a champion: its military, by its {@code military_bonus} (KING-3). */
     public static int attack(Realm realm, String nation, RealmNode attacker) {
         if (RealmNode.KINGDOM.equals(nation)) {
             return kingdomAttack(realm);
@@ -217,7 +217,7 @@ public final class RealmRaids {
         RealmNode attacker = stronghold.get();
         String defenders = target.owner();
         Outcome outcome = settle(realm, raid, target, attacker, attack, defense, fought);
-        // The undead raise the fallen of both sides (DD-102): a share of all that fell, to whichever side they're on.
+        // The undead raise the fallen of both sides (KING-3): a share of all that fell, to whichever side they're on.
         raiseDead(realm, raid.nation(), attacker, outcome.fallen());
         if (!defenders.equals(raid.nation())) {
             raiseDead(realm, defenders, target, outcome.fallen());

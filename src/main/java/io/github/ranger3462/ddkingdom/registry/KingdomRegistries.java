@@ -21,7 +21,7 @@ public final class KingdomRegistries {
     public static final DeferredRegister<EntityType<?>> ENTITIES = DeferredRegister.create(Registries.ENTITY_TYPE, KingdomSim.MODID);
     public static final DeferredRegister.Items ITEMS = DeferredRegister.createItems(KingdomSim.MODID);
 
-    /** The town guard (DD-98): a human soldier who turns out when a realm town is raided. */
+    /** The town guard (KING-13): a human soldier who turns out when a realm town is raided. */
     public static final DeferredHolder<EntityType<?>, EntityType<TownGuard>> TOWN_GUARD = ENTITIES.register("town_guard",
             () -> EntityType.Builder.of(TownGuard::new, MobCategory.MISC).sized(0.6f, 1.8f).eyeHeight(1.62f).clientTrackingRange(10)
                     .build(KingdomSim.id("town_guard").toString()));

@@ -17,7 +17,7 @@ import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.neoforge.event.tick.ServerTickEvent;
 
 /**
- * Real raid damage, and rebuilding (DD-97, docs/design/realm.md), on a node's {@link Blueprint}:
+ * Real raid damage, and rebuilding (KING-12, docs/design/realm.md), on a node's {@link Blueprint}:
  * <ul>
  * <li>A sacked town is owed damage (its {@code damage} stat, from {@link RealmRaids}). Once its area is loaded, that
  * many points of blocks are broken, {@link #BLOCKS_PER_POINT} a point, outside first, then roofs before floors. Only
@@ -66,7 +66,7 @@ public final class RealmDamage {
         }
     }
 
-    /** Each turn: wrecked towns with wealth pay to rebuild (DD-97), unless they're upgrading. */
+    /** Each turn: wrecked towns with wealth pay to rebuild (KING-12), unless they're upgrading. */
     public static void fundRepairs(Realm realm) {
         for (RealmNode node : realm.nodes()) {
             if (!RealmTiers.upgrading(node) && node.stat("wrecked") > 0 && node.stat("wealth") > 0 && node.stat("repair") < node.stat("wrecked")) {

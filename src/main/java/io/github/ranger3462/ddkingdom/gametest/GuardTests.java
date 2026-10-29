@@ -26,7 +26,7 @@ import net.neoforged.neoforge.common.util.FakePlayerFactory;
 import net.neoforged.neoforge.gametest.GameTestHolder;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
-/** Checks guard roles and stronghold news (DD-98, DD-100), and coins (DD-93). */
+/** Checks guard roles and stronghold news (KING-13, KING-15), and coins (KING-8). */
 @GameTestHolder(KingdomSim.MODID)
 @PrefixGameTestTemplate(false)
 public class GuardTests {

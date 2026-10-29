@@ -36,7 +36,7 @@ import net.neoforged.neoforge.event.entity.living.LivingIncomingDamageEvent;
 import net.neoforged.neoforge.event.tick.ServerTickEvent;
 
 /**
- * Live raids (DD-98, docs/design/realm.md). When a raid's dusk comes and a player is at the town, it isn't rolled: it's
+ * Live raids (KING-13, docs/design/realm.md). When a raid's dusk comes and a player is at the town, it isn't rolled: it's
  * fought. The attacking nation's mobs come in {@link #WAVES} waves from all round the town (its dungeon faction's mobs,
  * of a tier by the stronghold's military), against the town's guards ({@link TownGuard}s: more for a bigger town and better morale, better
  * armed for more wealth, tougher for a better defense; a town's are its standing garrison, see {@link RealmGarrison}, and

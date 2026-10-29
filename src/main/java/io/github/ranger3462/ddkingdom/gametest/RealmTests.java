@@ -11,7 +11,7 @@ import net.minecraft.world.level.Level;
 import net.neoforged.neoforge.gametest.GameTestHolder;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
-/** Checks the realm's map (DD-94): nodes, owners, links, borders, and saving. */
+/** Checks the realm's map (KING-9): nodes, owners, links, borders, and saving. */
 @GameTestHolder(KingdomSim.MODID)
 @PrefixGameTestTemplate(false)
 public class RealmTests {

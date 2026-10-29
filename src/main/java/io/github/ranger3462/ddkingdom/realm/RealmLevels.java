@@ -30,7 +30,7 @@ import net.neoforged.neoforge.event.entity.living.FinalizeSpawnEvent;
 import net.neoforged.neoforge.event.tick.ServerTickEvent;
 
 /**
- * Area danger levels (DD-100, docs/design/realm.md). Where the realm has nodes, hostile mobs that spawn there get a
+ * Area danger levels (KING-15, docs/design/realm.md). Where the realm has nodes, hostile mobs that spawn there get a
  * level from the map, which makes them tougher ({@link #apply}):
  * <ul>
  * <li>Within {@link #SAFE_RADIUS} of a kingdom-held node, distance adds nothing: the kingdom keeps its own ground.</li>

@@ -17,7 +17,7 @@ import net.minecraft.world.entity.Mob;
 import net.neoforged.neoforge.gametest.GameTestHolder;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
-/** Checks nation capitals (DD-101). */
+/** Checks nation capitals (KING-16). */
 @GameTestHolder(KingdomSim.MODID)
 @PrefixGameTestTemplate(false)
 public class CapitalTests {

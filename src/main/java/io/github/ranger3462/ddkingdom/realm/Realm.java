@@ -23,7 +23,7 @@ import net.minecraft.world.level.Level;
 import net.minecraft.world.level.saveddata.SavedData;
 
 /**
- * The realm's map (DD-94, docs/design/realm.md): its nodes, and the links between them. Links make borders: a kingdom
+ * The realm's map (KING-9, docs/design/realm.md): its nodes, and the links between them. Links make borders: a kingdom
  * node linked to a monster nation's is on the border. Saved with the world (in the overworld's data). Nodes are
  * hand-placed and linked with the /realm commands.
  */
@@ -36,7 +36,7 @@ public final class Realm extends SavedData {
     /** Links, each stored once as "a|b" with a before b. */
     private final Set<String> links = new LinkedHashSet<>();
 
-    // --- Turns (DD-95, see RealmTurns) ---
+    // --- Turns (KING-10, see RealmTurns) ---
 
     /** How many turns the realm has taken. */
     int turn;
@@ -44,7 +44,7 @@ public final class Realm extends SavedData {
     long lastTurnMillis;
     /** The kingdom's own stats: its standing army and treasury. */
     final Map<String, Integer> kingdom = new LinkedHashMap<>(Map.of("army", 10));
-    /** Each faction's food and trade (DD-103, see RealmEconomy), by faction. */
+    /** Each faction's food and trade (KING-4, see RealmEconomy), by faction. */
     final Map<String, Map<String, Integer>> purses = new LinkedHashMap<>();
     /** Raids declared and not yet resolved. */
     final List<Raid> raids = new ArrayList<>();
@@ -169,12 +169,12 @@ public final class Realm extends SavedData {
         String was = node.owner();
         node.setOwner(owner);
         if (!was.equals(owner)) {
-            node.stats().remove("blight"); // A new owner's land starts clean (DD-102).
+            node.stats().remove("blight"); // A new owner's land starts clean (KING-3).
             node.stats().remove("securing");
             Optional<RealmNode> home = node.type == RealmNode.Type.STRONGHOLD && wasMonsters ? RealmCapitals.capital(this, was) : Optional.empty();
             int survivors = node.stat("military") / 2;
             if (home.isPresent() && survivors > 0) {
-                // The survivors of a lost stronghold fall back to their capital (DD-104).
+                // The survivors of a lost stronghold fall back to their capital (KING-1).
                 home.get().stats().merge("military", survivors, Integer::sum);
                 node.stats().put("military", 0);
                 news(LogKind.MARCH, was, "The survivors of " + node.name() + ", " + survivors + " strong, fall back to " + home.get().name() + ".");
@@ -442,7 +442,7 @@ public final class Realm extends SavedData {
             CompoundTag one = purseTag.getCompound(faction);
             one.getAllKeys().forEach(what -> realm.purses.computeIfAbsent(faction, key -> new LinkedHashMap<>()).put(what, one.getInt(what)));
         }
-        Integer treasury = realm.kingdom.remove("treasury"); // Saved before purses (DD-103): the kingdom's treasury was its trade.
+        Integer treasury = realm.kingdom.remove("treasury"); // Saved before purses (KING-4): the kingdom's treasury was its trade.
         if (treasury != null && !realm.purse(RealmNode.KINGDOM).containsKey(RealmEconomy.TRADE)) {
             realm.purses.computeIfAbsent(RealmNode.KINGDOM, key -> new LinkedHashMap<>()).put(RealmEconomy.TRADE, treasury);
         }

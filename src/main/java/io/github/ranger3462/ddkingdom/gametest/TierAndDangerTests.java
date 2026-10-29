@@ -21,7 +21,7 @@ import net.minecraft.world.item.Items;
 import net.neoforged.neoforge.gametest.GameTestHolder;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
-/** Checks town tiers (DD-99) and area danger levels (DD-100). */
+/** Checks town tiers (KING-14) and area danger levels (KING-15). */
 @GameTestHolder(KingdomSim.MODID)
 @PrefixGameTestTemplate(false)
 public class TierAndDangerTests {

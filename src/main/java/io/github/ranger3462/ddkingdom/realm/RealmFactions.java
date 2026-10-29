@@ -23,7 +23,7 @@ import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.neoforge.event.AddReloadListenerEvent;
 
 /**
- * Who each realm faction is and how it plays (DD-102, docs/design/realm-factions.md): its names, and the
+ * Who each realm faction is and how it plays (KING-3, docs/design/realm-factions.md): its names, and the
  * <b>traits</b> its turns read, from {@code data/<namespace>/realm/factions/<faction>.json} so they can be tuned in a
  * datapack. A faction with no file plays by {@link Traits#GENERIC}.
  * <p>
@@ -33,7 +33,7 @@ import net.neoforged.neoforge.event.AddReloadListenerEvent;
  * to win back what it lost ({@code retake}), how far from its capital it fights ({@code home_radius}), how much
  * stronger its troops are ({@code military_bonus}), whether it raises the fallen ({@code raise_dead}), blights its land
  * ({@code blight}), or attacks in bursts from its capital ({@code burst_ratio}), and the resource kind it gets twice
- * as much from ({@code affinity}, DD-103). {@code reserve}, {@code roams} and
+ * as much from ({@code affinity}, KING-4). {@code reserve}, {@code roams} and
  * {@code tithe} are read once troops and wealth are tracked (phases 2 and 4).
  * <p>
  * A faction without its own dungeon mobs yet (the kobolds and elementals) raids with its file's {@code mobs} (spawner

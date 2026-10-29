@@ -46,7 +46,7 @@ town's defense, or a stronghold's or site's fortification.)
 | Raid | 0 unless it's ready. Then 1, plus 1 for every 10% its chance beats its bar, times its aggression. 0 with a raid already under way, or while securing a new holding | Declares a raid on the target, from the stronghold linked to it |
 | Fortify | 1, plus 1 if its weakest stronghold's fortification is under 5, plus 6 while securing a new holding | Every stronghold gains 1 fortification (by growth), and every town it holds as much defense |
 
-Each nation plays by its **traits** (`data/dungeondelving/realm/factions/<nation>.json`, DD-102; see
+Each nation plays by its **traits** (`data/dungeondelving/realm/factions/<nation>.json`, KING-3; see
 `realm-factions.md`). It's **ready** to raid when its chance of winning the roll (`RealmFactions.winChance`: 47.5% at
 even odds, 75% at +7, 90% at +12) is at least its **attack bar**: goblins 45%, orcs and undead 50%, kobolds 90%, the
 kingdom's marches 75%. Its **targets** say whom: goblins and undead go for the kingdom and unheld places, and other

@@ -15,7 +15,7 @@ import net.minecraft.world.level.block.Blocks;
 import net.neoforged.neoforge.gametest.GameTestHolder;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
-/** Checks town blueprints (DD-97): real raid damage from them, and rebuilding. */
+/** Checks town blueprints (KING-12): real raid damage from them, and rebuilding. */
 @GameTestHolder(KingdomSim.MODID)
 @PrefixGameTestTemplate(false)
 public class BlueprintTests {

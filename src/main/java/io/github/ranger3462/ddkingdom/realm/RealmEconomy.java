@@ -7,7 +7,7 @@ import java.util.Optional;
 import java.util.Set;
 
 /**
- * The realm's economy (DD-103, docs/design/realm-factions.md section 5): every faction keeps a purse of <b>food</b> and
+ * The realm's economy (KING-4, docs/design/realm-factions.md section 5): every faction keeps a purse of <b>food</b> and
  * <b>trade</b>, filled each turn by what it holds.
  * <ul>
  * <li>Income: each town gives food and trade by its tier, each stronghold 1 of each, a capital 3 of each, and each

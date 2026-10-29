@@ -15,7 +15,7 @@ import net.minecraft.world.level.Level;
 import net.neoforged.neoforge.gametest.GameTestHolder;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
-/** Checks the realm's economy (DD-103): purses of food and trade, what fills them, what they pay for, and resource nodes. */
+/** Checks the realm's economy (KING-4): purses of food and trade, what fills them, what they pay for, and resource nodes. */
 @GameTestHolder(KingdomSim.MODID)
 @PrefixGameTestTemplate(false)
 public class EconomyTests {

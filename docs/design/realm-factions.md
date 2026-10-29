@@ -1,7 +1,7 @@
 # Realm factions: who they are and how they play (proposal)
 
 From the kingdom behaviour writeup (Zach, 2026-10-27). This is the plan for the next round of realm work. Today's
-rules are in `realm-decisions.md`; this page says what changes. Phases 1 (DD-102) and 2 (DD-103) are built; the rest isn't yet. Questions still open are
+rules are in `realm-decisions.md`; this page says what changes. Phases 1 (KING-3) and 2 (KING-4) are built; the rest isn't yet. Questions still open are
 at the end.
 
 ## The factions
@@ -136,7 +136,7 @@ The kobolds and elementals can join the realm in phase 1 with stand-in mobs, or 
 - **Kobolds and elementals join now**, with stand-in mobs until their own exist (DD-54).
 - **Order:** the phases as written.
 
-## Built in phase 2 (DD-103)
+## Built in phase 2 (KING-4)
 
 - **Purses:** every faction keeps food and trade (starting at 10 each). The kingdom's old treasury became its trade.
 - **Income each turn:** a town gives food and trade equal to its tier; a stronghold 3 food and 1 trade; a capital 8 food and 3 trade (a capital alone feeds 160 troops);
@@ -162,7 +162,7 @@ The kobolds and elementals can join the realm in phase 1 with stand-in mobs, or 
 Still to come: `tithe` (needs wealth moving between places) and real troop upkeep and gear (phase 4).
 
 
-## Built in phase 3 (DD-104)
+## Built in phase 3 (KING-1)
 
 - **Capitals are cities:** every capital has a town's defense (20), wealth (20) and morale (10) at city tier, plus its
   garrison (its military, 30 to start). Capitals made before this become cities when the world loads.

@@ -16,7 +16,7 @@ import net.minecraft.world.level.Level;
 import net.neoforged.neoforge.gametest.GameTestHolder;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
-/** Checks capitals as cities (DD-104): sacked but never taken, doubly defended, and home to a nation's garrison. */
+/** Checks capitals as cities (KING-1): sacked but never taken, doubly defended, and home to a nation's garrison. */
 @GameTestHolder(KingdomSim.MODID)
 @PrefixGameTestTemplate(false)
 public class CapitalCityTests {

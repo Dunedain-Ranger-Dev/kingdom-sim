@@ -15,7 +15,7 @@ import net.minecraft.world.level.Level;
 import net.neoforged.neoforge.gametest.GameTestHolder;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
-/** Checks the realm's turns (DD-95): the real-time clock and its catch-up cap, and each side's actions. */
+/** Checks the realm's turns (KING-10): the real-time clock and its catch-up cap, and each side's actions. */
 @GameTestHolder(KingdomSim.MODID)
 @PrefixGameTestTemplate(false)
 public class RealmTurnTests {
@@ -101,7 +101,7 @@ public class RealmTurnTests {
         helper.succeed();
     }
 
-    /** Raids resolve at dusk by a roll (DD-96). */
+    /** Raids resolve at dusk by a roll (KING-11). */
     @GameTest(template = ANY_TEMPLATE)
     public static void raidsResolveAtDuskByARoll(GameTestHelper helper) {
         Realm realm = frontier();

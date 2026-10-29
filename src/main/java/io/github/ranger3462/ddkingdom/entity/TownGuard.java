@@ -36,7 +36,7 @@ import net.minecraft.world.item.component.DyedItemColor;
 import net.minecraft.world.level.Level;
 
 /**
- * A town guard (DD-98): a human soldier who turns out when the town's raided, in place of iron golems. It fights the
+ * A town guard (KING-13): a human soldier who turns out when the town's raided, in place of iron golems. It fights the
  * raiders (and anything hostile), never the town's side.
  * <p>
  * Its look is the town's to set ({@code /realm guards}): a skin ({@link #pickSkin}: by default one of our guard set,

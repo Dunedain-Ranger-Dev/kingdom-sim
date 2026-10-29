@@ -3,7 +3,7 @@ package io.github.ranger3462.ddkingdom.realm;
 import net.minecraft.util.Mth;
 
 /**
- * Town tiers (DD-99, docs/design/realm.md). A town starts as ruins (tier 0) and grows to a city (tier 5), whoever holds
+ * Town tiers (KING-14, docs/design/realm.md). A town starts as ruins (tier 0) and grows to a city (tier 5), whoever holds
  * it. Each turn, a held town with wealth to spare (the tier-up's {@link #cost}, plus {@link #RESERVE} kept back for
  * repairs; ruins need nothing), whose holder has the {@link #food} for it, and no raid damage still being rebuilt spends it and starts upgrading. An upgrade takes
  * {@link #DAYS_PER_TIER} turns (days) for each tier it's growing to, and while it lasts the town gets no other support:
@@ -37,7 +37,7 @@ public final class RealmTiers {
         return 10 * tier;
     }
 
-    /** The food its holder spends to grow a town from {@code tier} to the next (DD-103): 5 per tier it grows to (ruins resettle free). */
+    /** The food its holder spends to grow a town from {@code tier} to the next (KING-4): 5 per tier it grows to (ruins resettle free). */
     public static int food(int tier) {
         return FOOD_PER_TIER * (tier + 1);
     }

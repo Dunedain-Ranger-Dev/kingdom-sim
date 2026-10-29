@@ -15,7 +15,7 @@ import net.minecraft.world.level.Level;
 import net.neoforged.neoforge.gametest.GameTestHolder;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
-/** Checks the realm factions' traits (DD-102): odds, whom they attack, securing, raising the dead, blight and bursts. */
+/** Checks the realm factions' traits (KING-3): odds, whom they attack, securing, raising the dead, blight and bursts. */
 @GameTestHolder(KingdomSim.MODID)
 @PrefixGameTestTemplate(false)
 public class FactionTests {

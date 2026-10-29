@@ -23,7 +23,7 @@ import net.neoforged.neoforge.common.util.FakePlayerFactory;
 import net.neoforged.neoforge.gametest.GameTestHolder;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
-/** Checks live raids (DD-98): waves against a town's guards, scored by the damage each side does. */
+/** Checks live raids (KING-13): waves against a town's guards, scored by the damage each side does. */
 @GameTestHolder(KingdomSim.MODID)
 @PrefixGameTestTemplate(false)
 public class LiveRaidTests {

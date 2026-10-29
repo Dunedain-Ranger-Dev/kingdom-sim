@@ -21,7 +21,7 @@ import net.neoforged.neoforge.event.RegisterCommandsEvent;
 import net.neoforged.neoforge.event.entity.living.LivingDeathEvent;
 
 /**
- * Nation capitals (DD-101, docs/design/realm.md): each monster nation's home base. A capital can never be taken or
+ * Nation capitals (KING-16, docs/design/realm.md): each monster nation's home base. A capital can never be taken or
  * cleared, and keeps the land around it dangerous (see {@link RealmLevels}).
  * <p>
  * While a nation holds strongholds, its capital stays behind them. Once it's <b>pushed back</b> (every stronghold lost),
@@ -35,7 +35,7 @@ import net.neoforged.neoforge.event.entity.living.LivingDeathEvent;
  * The kingdom can have a capital too: its army can march out from it, and while it stands the kingdom's champion leads
  * every march ({@link #CHAMPION_BONUS} to its attack).
  * <p>
- * Every capital is a city (DD-104): it has a town's defense, wealth and morale, and can be sacked but never taken
+ * Every capital is a city (KING-1): it has a town's defense, wealth and morale, and can be sacked but never taken
  * ({@link RealmRaids#CAPITAL_DEFENSE}). A nation's new troops muster there until its garrison is back to {@link #GARRISON},
  * and the survivors of a stronghold it loses fall back to it.
  */

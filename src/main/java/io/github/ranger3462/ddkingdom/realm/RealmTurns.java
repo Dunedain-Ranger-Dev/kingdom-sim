@@ -19,7 +19,7 @@ import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.neoforge.event.tick.ServerTickEvent;
 
 /**
- * The realm's turns (DD-95, docs/design/realm.md). A turn comes every {@link Config#REALM_TURN_MINUTES} real minutes (a
+ * The realm's turns (KING-10, docs/design/realm.md). A turn comes every {@link Config#REALM_TURN_MINUTES} real minutes (a
  * Minecraft day by default), on a real-time clock that keeps counting while the server is off; on startup, missed turns
  * are taken, up to {@link Config#REALM_CATCH_UP_TURNS}, and the rest skipped.
  * <p>
@@ -184,7 +184,7 @@ public final class RealmTurns {
         weights.put(KingdomAction.GATHER_WEALTH, 2 + (RealmEconomy.trade(realm, RealmNode.KINGDOM) < 10 ? 2 : 0));
         Optional<Map.Entry<RealmNode, RealmNode>> march = marchTarget(realm);
         boolean marching = realm.raids.stream().anyMatch(raid -> RealmNode.KINGDOM.equals(raid.nation()));
-        // Only when it's fairly sure to win (its attack bar, DD-102): the keener the more it outmatches the target.
+        // Only when it's fairly sure to win (its attack bar, KING-3): the keener the more it outmatches the target.
         int margin = march.map(target -> RealmRaids.kingdomAttack(realm) - RealmRaids.defense(realm, target.getValue())).orElse(0);
         boolean confident = RealmFactions.winChance(margin) >= RealmFactions.get(RealmNode.KINGDOM).attackBar();
         weights.put(KingdomAction.MARCH, march.isEmpty() || marching || !confident ? 0 : 1 + margin / 3);
@@ -249,7 +249,7 @@ public final class RealmTurns {
     }
 
     /**
-     * Where a nation would raid, by its traits (DD-102): from any of its strongholds (and its capital, for a nation
+     * Where a nation would raid, by its traits (KING-3): from any of its strongholds (and its capital, for a nation
      * that attacks in bursts), on a linked place it could take or a town it could sack. Its {@code targets} say whose;
      * a {@code home_radius} keeps it within that many links of its capital. The best is the likeliest win, ahead of that
      * places it could take, and ahead of those places it lost (by how keen it is to retake them).
@@ -400,7 +400,7 @@ public final class RealmTurns {
                     return;
                 }
                 if (capital.isPresent() && capital.get().stat("military") < RealmCapitals.GARRISON) {
-                    // New troops muster at home first, until its garrison is back to strength (DD-104).
+                    // New troops muster at home first, until its garrison is back to strength (KING-1).
                     realm.addStat(capital.get(), "military", gained);
                     realm.record(Realm.LogKind.PREPARE, nation, "The " + name + " mustered new troops at " + capital.get().name() + ": its garrison is now " + capital.get().stat("military") + ".");
                     return;

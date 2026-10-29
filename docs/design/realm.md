@@ -1,6 +1,6 @@
 # The Realm
 
-One kingdom against the monster tide (DD-93). The user's direction, 2026-10-26; numbers are first guesses for tuning.
+One kingdom against the monster tide (KING-8). The user's direction, 2026-10-26; numbers are first guesses for tuning.
 
 ## The idea
 
@@ -90,13 +90,13 @@ and has to be retaken. The tide can't be beaten, only held back: there's always 
   groups, and charisma eases standing gains.
 - **The new-player flow** (player-systems.md) starts in a town: greeted, given an adventuring book, pointed to a guild.
 
-## First slice (DD-94 to DD-98)
+## First slice (KING-9 to KING-13)
 
-1. **Nodes** (DD-94): the registry, placing and linking by hand, and a command to inspect them.
-2. **Turns** (DD-95): the real-time clock with catch-up, and each side's daily action; the realm log.
-3. **Raids by roll** (DD-96): declare at dawn, resolve at dusk.
-4. **Blueprints** (DD-97): snapshot, real damage, rebuilding.
-5. **Live raids** (DD-98): waves when a player is there, damage decides it.
+1. **Nodes** (KING-9): the registry, placing and linking by hand, and a command to inspect them.
+2. **Turns** (KING-10): the real-time clock with catch-up, and each side's daily action; the realm log.
+3. **Raids by roll** (KING-11): declare at dawn, resolve at dusk.
+4. **Blueprints** (KING-12): snapshot, real damage, rebuilding.
+5. **Live raids** (KING-13): waves when a player is there, damage decides it.
 
 Built and tested with one town and one goblin stronghold on a dev world. Then: politics and standing, contracts,
 sites and heat, more nations, events.

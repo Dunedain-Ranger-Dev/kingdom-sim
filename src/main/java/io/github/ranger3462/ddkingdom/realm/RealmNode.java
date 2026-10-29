@@ -13,7 +13,7 @@ import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.level.Level;
 
 /**
- * One place in the realm (DD-94, docs/design/realm.md): a town, site, stronghold, battle or event, hand-placed at a
+ * One place in the realm (KING-9, docs/design/realm.md): a town, site, stronghold, battle or event, hand-placed at a
  * position. It has an owner (the kingdom, a monster nation, or no one), a kind for sites and events (a watchtower, a
  * caravan), and stats by name (a town's defense, wealth and morale; a stronghold's military).
  */
@@ -33,7 +33,7 @@ public final class RealmNode {
         /** Land that gives its holder food, trade or more each turn, by its kind (RealmEconomy.Kind): anyone can take it. */
         RESOURCE(Map.of("fortification", 3)),
         /**
-         * A faction's home (DD-101, DD-104): a city with a town's defense, wealth and morale, and a garrison (its military).
+         * A faction's home (KING-16, KING-1): a city with a town's defense, wealth and morale, and a garrison (its military).
          * It can be sacked but never taken, and sends its champion once its nation is pushed back.
          */
         CAPITAL(Map.of("military", 30, "rally", 0, "defense", 20, "wealth", 20, "morale", 10, "tier", RealmTiers.MAX_TIER)),
@@ -68,7 +68,7 @@ public final class RealmNode {
     private String name;
     private String owner;
     private String kind = "";
-    /** Who held it before its owner took it (blank if no one has), so a faction knows what it lost (DD-102). */
+    /** Who held it before its owner took it (blank if no one has), so a faction knows what it lost (KING-3). */
     private String lostBy = "";
     /** A town's guard look (/realm guards): skin setting (see TownGuard.pickSkin; blank is our set) and color (blank is none). */
     private String guardSkin = "";
@@ -228,7 +228,7 @@ public final class RealmNode {
             node.stats.put(stat, stats.getInt(stat));
         }
         if (type.get() == Type.CAPITAL) {
-            Type.CAPITAL.defaults.forEach(node.stats::putIfAbsent); // Capitals made before DD-104 become cities.
+            Type.CAPITAL.defaults.forEach(node.stats::putIfAbsent); // Capitals made before KING-1 become cities.
         }
         return Optional.of(node);
     }

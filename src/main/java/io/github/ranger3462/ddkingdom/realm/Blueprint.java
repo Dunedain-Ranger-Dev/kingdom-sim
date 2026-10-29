@@ -22,7 +22,7 @@ import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.saveddata.SavedData;
 
 /**
- * A town's blueprint (DD-97, docs/design/realm.md): a snapshot of every block in a box around it, saved with the world
+ * A town's blueprint (KING-12, docs/design/realm.md): a snapshot of every block in a box around it, saved with the world
  * (one data file per town). Raids break the blocks it holds and rebuilding puts them back, so a hand-built town is never
  * lost for good. Re-saving it (when the town's builds change on purpose) replaces it.
  * <p>
