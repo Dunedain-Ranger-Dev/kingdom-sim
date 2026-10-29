@@ -133,7 +133,9 @@ public class TierAndDangerTests {
         RealmLiveRaids.LiveRaid live = RealmLiveRaids.start(realm, raid, level);
         helper.runAfterDelay(3, () -> {
           try {
-            TownGuard guard = (TownGuard) RealmLiveRaids.guards(live).get(0);
+            // A swordsman: crossbowmen hit softer (so sit a level or two lower), and battlemages aren't TownGuards.
+            TownGuard guard = RealmLiveRaids.guards(live).stream().filter(mob -> mob instanceof TownGuard g && !g.isCrossbowman())
+                    .map(TownGuard.class::cast).findFirst().orElseThrow();
             helper.assertTrue(guard.getItemBySlot(EquipmentSlot.CHEST).is(io.github.ranger3462.ddkingdom.entity.GuardGear.armor(
                     io.github.ranger3462.ddkingdom.entity.GuardGear.Role.SWORD, 3)[1].getItem()), "a city's guards wear its best armor, even with no wealth");
             helper.assertTrue(guard.getMaxHealth() == (float) TownGuard.health(RealmRaids.defense(realm, town), 5)
