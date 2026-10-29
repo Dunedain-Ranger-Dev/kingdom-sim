@@ -1,0 +1,21 @@
+{
+  "name": "elementals",
+  "capital": "The Shattered Spire",
+  "leader": "The Conclave of Four",
+  "champion": "Pyrrhis the Unbound",
+  "growth": 0.7,
+  "aggression": 1.0,
+  "attack_bar": 0.5,
+  "targets": "kingdom",
+  "fortify_after_capture": true,
+  "retake": 0.1,
+  "reserve": 1.0,
+  "burst_ratio": 2.0,
+  "mobs": [
+    "minecraft:magma_cube=40@1-2",
+    "minecraft:stray=30@1-2",
+    "minecraft:blaze=40@2-4",
+    "minecraft:breeze=40@2-4"
+  ],
+  "affinity": "arcane_site"
+}

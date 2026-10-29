@@ -1,0 +1,14 @@
+{
+  "name": "goblins",
+  "capital": "Gristlehold",
+  "leader": "Warlord Skarrik Ironjaw",
+  "champion": "Nixa the Tinker-Queen",
+  "growth": 1.4,
+  "aggression": 1.5,
+  "attack_bar": 0.45,
+  "targets": "kingdom_first",
+  "weak_bar": 0.75,
+  "fortify_after_capture": true,
+  "retake": 0.8,
+  "reserve": 0.1
+}

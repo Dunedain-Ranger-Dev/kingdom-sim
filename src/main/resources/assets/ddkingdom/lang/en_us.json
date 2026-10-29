@@ -1,0 +1,9 @@
+{
+  "entity.ddkingdom.town_guard": "Town Guard",
+  "entity.ddkingdom.town_mage": "Town Battlemage",
+  "item.ddkingdom.town_guard_spawn_egg": "Town Guard Spawn Egg",
+  "item.ddkingdom.town_mage_spawn_egg": "Town Battlemage Spawn Egg",
+  "key.categories.ddkingdom": "Kingdom Sim",
+  "key.ddkingdom.realm": "Realm Map",
+  "screen.ddkingdom.realm": "The Realm"
+}

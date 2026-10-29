@@ -1,0 +1,13 @@
+{
+  "name": "Hearthbound Kingdom",
+  "capital": "Landfall",
+  "leader": "Queen Aldra Vayne",
+  "champion": "Ser Bram Hollowell",
+  "growth": 1.0,
+  "aggression": 1.0,
+  "attack_bar": 0.75,
+  "targets": "monsters",
+  "fortify_after_capture": true,
+  "retake": 0.8,
+  "reserve": 0.2
+}

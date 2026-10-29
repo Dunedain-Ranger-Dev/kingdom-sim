@@ -1,0 +1,25 @@
+{
+  "name": "kobolds",
+  "capital": "Vyrnhallow",
+  "leader": "Azhvorrath, the Ashen Wyrm",
+  "champion": "High Scalecaller Rixx",
+  "growth": 0.7,
+  "aggression": 0.7,
+  "attack_bar": 0.9,
+  "targets": "anyone",
+  "fortify_after_capture": true,
+  "retake": 0.8,
+  "reserve": 0.5,
+  "home_radius": 2,
+  "tithe": 0.75,
+  "mobs": [
+    "dungeondelving:kobold_looter=60@1-2",
+    "dungeondelving:kobold_scavenger=40@1-2",
+    "dungeondelving:goblin_shaman=20@2-3",
+    "dungeondelving:hobgoblin_soldier=40@3",
+    "dungeondelving:goblin_pyro=30@3-4",
+    "minecraft:blaze=50@4"
+  ],
+  "boss_faction": "goblins",
+  "affinity": "mine"
+}

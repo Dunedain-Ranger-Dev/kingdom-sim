@@ -1,0 +1,15 @@
+{
+  "name": "orcs",
+  "capital": "Khar Dumak",
+  "leader": "Warchief Ghorza Bloodmane",
+  "champion": "Durhak the Unbroken",
+  "growth": 1.0,
+  "aggression": 2.0,
+  "attack_bar": 0.5,
+  "targets": "anyone",
+  "fortify_after_capture": false,
+  "retake": 0.1,
+  "reserve": 0.3,
+  "roams": true,
+  "military_bonus": 0.2
+}

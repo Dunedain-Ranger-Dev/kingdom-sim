@@ -1,0 +1,16 @@
+{
+  "name": "undead",
+  "capital": "Morvane",
+  "leader": "The Pale Regent, Lord Caelith Morvane",
+  "champion": "The Hollow Knight, Ser Varric Thane",
+  "growth": 0.8,
+  "aggression": 1.0,
+  "attack_bar": 0.5,
+  "targets": "kingdom_first",
+  "weak_bar": 0.75,
+  "fortify_after_capture": false,
+  "retake": 0.8,
+  "reserve": 0.1,
+  "raise_dead": 0.33,
+  "blight": 1
+}

@@ -1,0 +1,18 @@
+pluginManagement {
+    repositories {
+        gradlePluginPortal()
+    }
+}
+
+plugins {
+    id 'org.gradle.toolchains.foojay-resolver-convention' version '1.0.0'
+}
+rootProject.name = 'kingdom-sim'
+
+// Dungeon Delving (and through it Professions and Skills and Deep Mines), built from source next to this repository.
+// Kingdom Sim needs Dungeon Delving; Professions and Skills is an optional link.
+if (file('../dwarven-vaults').isDirectory()) {
+    includeBuild('../dwarven-vaults')
+} else {
+    includeBuild('../dungeon-delving')
+}
