@@ -29,7 +29,7 @@ import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 public class LiveRaidTests {
     private static final String ANY_TEMPLATE = "test/empty";
 
-    @GameTest(template = ANY_TEMPLATE, timeoutTicks = 200)
+    @GameTest(batch = "realm_wavesComeAndATownThatBeatsThemHolds", template = ANY_TEMPLATE, timeoutTicks = 200)
     public static void wavesComeAndATownThatBeatsThemHolds(GameTestHelper helper) {
         ServerLevel level = helper.getLevel();
         Realm realm = frontier(helper);
@@ -78,7 +78,7 @@ public class LiveRaidTests {
         helper.succeed();
     }
 
-    @GameTest(template = ANY_TEMPLATE, timeoutTicks = 200)
+    @GameTest(batch = "realm_runningOutTheClockBehindIsASacking", template = ANY_TEMPLATE, timeoutTicks = 200)
     public static void runningOutTheClockBehindIsASacking(GameTestHelper helper) {
         ServerLevel level = helper.getLevel();
         Realm realm = frontier(helper);
@@ -100,7 +100,7 @@ public class LiveRaidTests {
         helper.succeed();
     }
 
-    @GameTest(template = ANY_TEMPLATE, timeoutTicks = 200)
+    @GameTest(batch = "realm_guardsTurnOutByMoraleArmedByWealthToughByDefense", template = ANY_TEMPLATE, timeoutTicks = 200)
     public static void guardsTurnOutByMoraleArmedByWealthToughByDefense(GameTestHelper helper) {
         ServerLevel level = helper.getLevel();
         Realm realm = frontier(helper);
@@ -129,7 +129,7 @@ public class LiveRaidTests {
         helper.succeed();
     }
 
-    @GameTest(template = ANY_TEMPLATE, timeoutTicks = 200)
+    @GameTest(batch = "realm_guardsWearTheirTownsLookAndVillagersHide", template = ANY_TEMPLATE, timeoutTicks = 200)
     public static void guardsWearTheirTownsLookAndVillagersHide(GameTestHelper helper) {
         ServerLevel level = helper.getLevel();
         Realm realm = frontier(helper);
@@ -160,7 +160,7 @@ public class LiveRaidTests {
         helper.succeed();
     }
 
-    @GameTest(template = ANY_TEMPLATE, timeoutTicks = 200)
+    @GameTest(batch = "realm_whenTheGuardsFallTheTownIsSacked", template = ANY_TEMPLATE, timeoutTicks = 200)
     public static void whenTheGuardsFallTheTownIsSacked(GameTestHelper helper) {
         ServerLevel level = helper.getLevel();
         Realm realm = frontier(helper);
@@ -180,7 +180,7 @@ public class LiveRaidTests {
         helper.succeed();
     }
 
-    @GameTest(template = ANY_TEMPLATE, timeoutTicks = 200)
+    @GameTest(batch = "realm_ruinsWithNoGuardsAreFoughtByWhoeversThere", template = ANY_TEMPLATE, timeoutTicks = 200)
     public static void ruinsWithNoGuardsAreFoughtByWhoeversThere(GameTestHelper helper) {
         ServerLevel level = helper.getLevel();
         Realm realm = frontier(helper);
@@ -198,7 +198,7 @@ public class LiveRaidTests {
         helper.succeed();
     }
 
-    @GameTest(template = ANY_TEMPLATE, timeoutTicks = 200)
+    @GameTest(batch = "realm_aFightWithNoOneThereWaitsThenIsRolled", template = ANY_TEMPLATE, timeoutTicks = 200)
     public static void aFightWithNoOneThereWaitsThenIsRolled(GameTestHelper helper) {
         ServerLevel level = helper.getLevel();
         Realm realm = frontier(helper);
@@ -214,7 +214,7 @@ public class LiveRaidTests {
         helper.succeed();
     }
 
-    @GameTest(template = ANY_TEMPLATE, timeoutTicks = 200)
+    @GameTest(batch = "realm_aFightNoOneStaysForIsRolled", template = ANY_TEMPLATE, timeoutTicks = 200)
     public static void aFightNoOneStaysForIsRolled(GameTestHelper helper) {
         ServerLevel level = helper.getLevel();
         Realm realm = frontier(helper);

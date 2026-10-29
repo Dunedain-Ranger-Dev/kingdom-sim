@@ -118,7 +118,7 @@ public class TierAndDangerTests {
         helper.succeed();
     }
 
-    @GameTest(template = ANY_TEMPLATE, timeoutTicks = 200)
+    @GameTest(batch = "realm_aBiggerTownsGuardsAreStrongerAndHigherLevel", template = ANY_TEMPLATE, timeoutTicks = 200)
     public static void aBiggerTownsGuardsAreStrongerAndHigherLevel(GameTestHelper helper) {
         ServerLevel level = helper.getLevel();
         Realm realm = new Realm();

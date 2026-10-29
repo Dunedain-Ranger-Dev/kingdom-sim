@@ -32,7 +32,7 @@ import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 public class GuardTests {
     private static final String ANY_TEMPLATE = "test/empty";
 
-    @GameTest(template = ANY_TEMPLATE, timeoutTicks = 200)
+    @GameTest(batch = "realm_townsSendSwordsmenCrossbowmenAndBattlemages", template = ANY_TEMPLATE, timeoutTicks = 200)
     public static void townsSendSwordsmenCrossbowmenAndBattlemages(GameTestHelper helper) {
         ServerLevel level = helper.getLevel();
         Realm realm = new Realm();

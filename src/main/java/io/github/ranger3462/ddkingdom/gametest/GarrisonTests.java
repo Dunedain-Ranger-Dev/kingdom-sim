@@ -40,7 +40,7 @@ public class GarrisonTests {
         return realm;
     }
 
-    @GameTest(template = ANY_TEMPLATE, timeoutTicks = 200)
+    @GameTest(batch = "realm_guardsStandAtTheirPostsAndTheFallenComeBackAtDawn", template = ANY_TEMPLATE, timeoutTicks = 200)
     public static void guardsStandAtTheirPostsAndTheFallenComeBackAtDawn(GameTestHelper helper) {
         ServerLevel level = helper.getLevel();
         Realm realm = town(helper, "postford");
@@ -100,7 +100,7 @@ public class GarrisonTests {
         });
     }
 
-    @GameTest(template = ANY_TEMPLATE, timeoutTicks = 200)
+    @GameTest(batch = "realm_aRaidIsFoughtByTheGarrisonWhichStaysAfter", template = ANY_TEMPLATE, timeoutTicks = 200)
     public static void aRaidIsFoughtByTheGarrisonWhichStaysAfter(GameTestHelper helper) {
         ServerLevel level = helper.getLevel();
         Realm realm = town(helper, "wardholt");
