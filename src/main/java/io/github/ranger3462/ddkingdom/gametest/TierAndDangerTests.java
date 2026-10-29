@@ -131,8 +131,9 @@ public class TierAndDangerTests {
         realm.setStat(town, "wealth", 0);
         Realm.Raid raid = RealmRaids.declare(realm, "riverhold", 0L).orElseThrow();
         RealmLiveRaids.LiveRaid live = RealmLiveRaids.start(realm, raid, level);
-        helper.runAfterDelay(3, () -> {
-          try {
+        // Checked each tick until it holds: a guard's level is worked out on its first tick after it's kitted out, which
+        // on a busy server can be a few ticks in.
+        helper.succeedWhen(() -> {
             // A swordsman: crossbowmen hit softer (so sit a level or two lower), and battlemages aren't TownGuards.
             TownGuard guard = RealmLiveRaids.guards(live).stream().filter(mob -> mob instanceof TownGuard g && !g.isCrossbowman())
                     .map(TownGuard.class::cast).findFirst().orElseThrow();
@@ -143,14 +144,14 @@ public class TierAndDangerTests {
             helper.assertTrue("riverhold Guard".equals(guard.getCustomName().getString()), "a guard carries its town's name");
             if (net.neoforged.fml.ModList.get().isLoaded("ddprofessions")) {
                 int cityLevel = io.github.ranger3462.ddprofessions.character.MobLevels.level(guard);
-                helper.assertTrue(cityLevel >= 10, "a city's guards are well above a villager's level 2: " + cityLevel);
+                helper.assertTrue(cityLevel >= 10, "a city's guards are well above a villager's level 2: " + cityLevel + " (stats say "
+                        + io.github.ranger3462.ddprofessions.character.MobLevels.fromStats(guard) + ": health " + guard.getMaxHealth() + ", attack "
+                        + guard.getAttributeValue(net.minecraft.world.entity.ai.attributes.Attributes.ATTACK_DAMAGE) + ", armor " + guard.getArmorValue()
+                        + ", ticks " + guard.tickCount + ")");
             }
             helper.assertTrue(RealmLiveRaids.guardCount(10, 5) == 8 && RealmLiveRaids.guardCount(10, 1) == 4 && RealmLiveRaids.guardCount(0, 1) == 2
                     && RealmLiveRaids.guardCount(100, 5) == RealmLiveRaids.MAX_GUARDS, "and more of them turn out: tier + 1 + morale / 5, up to 12");
-          } finally {
             RealmLiveRaids.clearAll();
-          }
-          helper.succeed();
         });
     }
 
