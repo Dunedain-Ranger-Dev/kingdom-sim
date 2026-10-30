@@ -1,0 +1,41 @@
+{
+  "name": "Four Corners",
+  "kingdoms": [
+    {"id":"dw","name":"Ironhold Dwarves","color":"#B9772E","growth":"normal","ai":"balanced","food":20,"wealth":1000,"res":200},
+    {"id":"el","name":"Sylvan Court","color":"#2C8C8A","growth":"slow","ai":"defensive","food":20,"wealth":1000,"res":200},
+    {"id":"hu","name":"Kingdom of Aster","color":"#4169C8","growth":"normal","ai":"economic","food":20,"wealth":1000,"res":200},
+    {"id":"go","name":"Goblin Warrens","color":"#7E9A26","growth":"fast","ai":"aggressive","goblinRule":true,"food":20,"wealth":1000,"res":200}
+  ],
+  "nodes": [
+    {"id":"dw_cap","name":"Karak Ostrum","type":"capital","tier":5,"owner":"dw","garrison":30,"defense":10,"morale":10,"devastation":0,"x":110,"y":110},
+    {"id":"dw_town","name":"Stonebrook","type":"town","tier":2,"owner":"dw","garrison":10,"defense":2,"morale":10,"devastation":0,"x":285,"y":85},
+    {"id":"dw_castle","name":"Greyhelm Hold","type":"castle","tier":1,"owner":"dw","garrison":15,"defense":6,"morale":10,"devastation":0,"x":250,"y":230},
+    {"id":"dw_mine","name":"Deepvein Mine","type":"production","tier":2,"owner":"dw","garrison":5,"defense":1,"morale":10,"devastation":0,"x":85,"y":270},
+    {"id":"dw_farm","name":"Moss Terraces","type":"food","tier":1,"owner":"dw","garrison":5,"defense":1,"morale":10,"devastation":0,"x":405,"y":165},
+    {"id":"dw_tower","name":"Eastwatch","type":"outpost","tier":1,"owner":"dw","garrison":5,"defense":3,"morale":10,"devastation":0,"x":385,"y":290},
+    {"id":"el_cap","name":"Lethiriel","type":"capital","tier":5,"owner":"el","garrison":30,"defense":10,"morale":10,"devastation":0,"x":890,"y":110},
+    {"id":"el_town","name":"Silverglade","type":"town","tier":2,"owner":"el","garrison":10,"defense":2,"morale":10,"devastation":0,"x":715,"y":85},
+    {"id":"el_castle","name":"Thornwall Hold","type":"castle","tier":1,"owner":"el","garrison":15,"defense":6,"morale":10,"devastation":0,"x":750,"y":230},
+    {"id":"el_mine","name":"Moonstone Dig","type":"production","tier":2,"owner":"el","garrison":5,"defense":1,"morale":10,"devastation":0,"x":915,"y":270},
+    {"id":"el_farm","name":"Dewfall Gardens","type":"food","tier":1,"owner":"el","garrison":5,"defense":1,"morale":10,"devastation":0,"x":595,"y":165},
+    {"id":"el_tower","name":"Westwatch","type":"outpost","tier":1,"owner":"el","garrison":5,"defense":3,"morale":10,"devastation":0,"x":615,"y":290},
+    {"id":"hu_cap","name":"Asterhal","type":"capital","tier":5,"owner":"hu","garrison":30,"defense":10,"morale":10,"devastation":0,"x":110,"y":590},
+    {"id":"hu_town","name":"Millford","type":"town","tier":2,"owner":"hu","garrison":10,"defense":2,"morale":10,"devastation":0,"x":285,"y":615},
+    {"id":"hu_castle","name":"Redcliff Hold","type":"castle","tier":1,"owner":"hu","garrison":15,"defense":6,"morale":10,"devastation":0,"x":250,"y":470},
+    {"id":"hu_mine","name":"Copperhill Mine","type":"production","tier":2,"owner":"hu","garrison":5,"defense":1,"morale":10,"devastation":0,"x":85,"y":430},
+    {"id":"hu_farm","name":"Barley Fields","type":"food","tier":1,"owner":"hu","garrison":5,"defense":1,"morale":10,"devastation":0,"x":405,"y":535},
+    {"id":"hu_tower","name":"Northwatch","type":"outpost","tier":1,"owner":"hu","garrison":5,"defense":3,"morale":10,"devastation":0,"x":385,"y":410},
+    {"id":"go_cap","name":"Gritmaw","type":"capital","tier":5,"owner":"go","garrison":30,"defense":10,"morale":10,"devastation":0,"x":890,"y":590},
+    {"id":"go_town","name":"Snagtown","type":"town","tier":2,"owner":"go","garrison":10,"defense":2,"morale":10,"devastation":0,"x":715,"y":615},
+    {"id":"go_castle","name":"Bonepile Hold","type":"castle","tier":1,"owner":"go","garrison":15,"defense":6,"morale":10,"devastation":0,"x":750,"y":470},
+    {"id":"go_mine","name":"Muckpit Dig","type":"production","tier":2,"owner":"go","garrison":5,"defense":1,"morale":10,"devastation":0,"x":915,"y":430},
+    {"id":"go_farm","name":"Fungus Beds","type":"food","tier":1,"owner":"go","garrison":5,"defense":1,"morale":10,"devastation":0,"x":595,"y":535},
+    {"id":"go_tower","name":"Peekspire","type":"outpost","tier":1,"owner":"go","garrison":5,"defense":3,"morale":10,"devastation":0,"x":615,"y":410},
+    {"id":"n_market","name":"Crossroads Market","type":"town","tier":2,"owner":null,"garrison":15,"defense":3,"x":500,"y":350},
+    {"id":"n_river","name":"Riverlands","type":"food","tier":2,"owner":null,"garrison":8,"defense":1,"x":500,"y":150},
+    {"id":"n_quarry","name":"Old Quarry","type":"production","tier":2,"owner":null,"garrison":8,"defense":1,"x":500,"y":550},
+    {"id":"n_keep","name":"Broken Keep","type":"castle","tier":0,"owner":null,"garrison":0,"defense":0,"x":175,"y":350},
+    {"id":"n_fort","name":"Sunken Fort","type":"castle","tier":1,"owner":null,"garrison":10,"defense":5,"x":825,"y":350}
+  ],
+  "edges": [["dw_cap","dw_town"], ["dw_cap","dw_castle"], ["dw_cap","dw_mine"], ["dw_town","dw_farm"], ["dw_castle","dw_farm"], ["dw_castle","dw_mine"], ["dw_castle","dw_tower"], ["dw_farm","dw_tower"], ["el_cap","el_town"], ["el_cap","el_castle"], ["el_cap","el_mine"], ["el_town","el_farm"], ["el_castle","el_farm"], ["el_castle","el_mine"], ["el_castle","el_tower"], ["el_farm","el_tower"], ["hu_cap","hu_town"], ["hu_cap","hu_castle"], ["hu_cap","hu_mine"], ["hu_town","hu_farm"], ["hu_castle","hu_farm"], ["hu_castle","hu_mine"], ["hu_castle","hu_tower"], ["hu_farm","hu_tower"], ["go_cap","go_town"], ["go_cap","go_castle"], ["go_cap","go_mine"], ["go_town","go_farm"], ["go_castle","go_farm"], ["go_castle","go_mine"], ["go_castle","go_tower"], ["go_farm","go_tower"], ["dw_farm","n_river"], ["el_farm","n_river"], ["hu_farm","n_quarry"], ["go_farm","n_quarry"], ["dw_tower","n_market"], ["el_tower","n_market"], ["hu_tower","n_market"], ["go_tower","n_market"], ["n_river","n_market"], ["n_quarry","n_market"], ["n_keep","dw_castle"], ["n_keep","hu_castle"], ["n_fort","el_castle"], ["n_fort","go_castle"], ["dw_mine","hu_mine"], ["el_mine","go_mine"], ["dw_castle","n_market"], ["el_castle","n_market"], ["hu_castle","n_market"], ["go_castle","n_market"], ["dw_town","n_river"], ["el_town","n_river"], ["hu_town","n_quarry"], ["go_town","n_quarry"]]
+}

@@ -157,6 +157,11 @@ def dungeonDelving = 'io.github.ranger3462.dungeondelving:dungeon-delving'
 def professions = 'io.github.ranger3462.ddprofessions:professions-and-skills'
 
 dependencies {
+    // Unit tests for the realm's rules engine (io.github.ranger3462.ddkingdom.sim), which has no Minecraft in it.
+    testImplementation 'org.junit.jupiter:junit-jupiter:5.11.4'
+    testImplementation 'com.google.code.gson:gson:2.10.1' // the version Minecraft 1.21.1 ships, which the engine reads its data with
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+
     compileOnly dungeonDelving
     compileOnly professions
     // Optional integrations, compiled against only: each is used only when its mod is installed.
@@ -224,6 +229,18 @@ publishing {
             url "file://${project.projectDir}/repo"
         }
     }
+}
+
+tasks.named('test', Test) {
+    useJUnitPlatform()
+}
+
+// The realm's rules simulator from the command line (SimMain): ./gradlew runSim --args="--map large_ruins --games 200"
+tasks.register('runSim', JavaExec) {
+    group = 'application'
+    description = 'Plays a batch of AI-only Kingdom Stats games and reports how they went.'
+    classpath = sourceSets.main.runtimeClasspath
+    mainClass = 'io.github.ranger3462.ddkingdom.sim.SimMain'
 }
 
 tasks.withType(JavaCompile).configureEach {

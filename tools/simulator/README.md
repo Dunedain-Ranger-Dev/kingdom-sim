@@ -30,3 +30,16 @@ python maps/render_map.py     # draws maps/large_map.png (needs Pillow)
 ```
 
 The page saves edited settings in the browser, under a name that changes when the default map or rules change.
+
+## The Java version
+
+The mod has the same engine in Java, in `src/main/java/io/github/ranger3462/ddkingdom/sim`, with the rules and maps as
+data in `src/main/resources/data/ddkingdom/realm/sim`. A seed plays the same game in both, which `parity.js` checks:
+
+```
+node parity.js ../../src/main/resources/data/ddkingdom/realm/sim/maps/large_ruins.json 20 40 > js.txt
+../../gradlew -p ../.. runSim -q --args="--map large_ruins --games 20 --rounds 40 --fingerprint --set combat.dice.mode=\"none\"" > java.txt
+```
+
+The two files should match exactly. Rules added in Java since the port aren't in this browser version, so the check
+turns them off: so far that's the dice in battles (`combat.dice`), which are on in the Java rules.

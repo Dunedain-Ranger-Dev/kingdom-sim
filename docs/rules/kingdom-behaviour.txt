@@ -1,0 +1,96 @@
+Kingdoms:
+	- Goblins
+		- Capital: Gristlehold
+			- Description: A sprawling warren-city dug into the hills of the Goblin Wilds. It’s built from scavenged timber, stolen stone and the hulls of wrecked ships dragged inland, and it’s always expanding and always half-collapsing.
+		- Leader: Warlord Skarrik Ironjaw
+			- Description: A hobgoblin who brought discipline to the goblin rabble. His jaw was replaced with riveted iron after a battle wound. He runs the warrens like a military camp, with the hobgoblins as officers and the goblins as endless, expendable troops. He’s cunning and patient, and sees the Hearthbound landing as a gift of new things to steal.
+		- Champion: Nixa the Tinker-Queen
+			- Description: A goblin engineer who builds the warren’s siege engines, traps and rickety war-rigs. She’s chaotic, gleeful and brilliant. Skarrik keeps her close because she’s too useful to lose and too dangerous to leave unsupervised.
+		- Behaviour:
+			- Expands aggressively
+			- Fast growth rate
+			- Launches attacks when the battle is a toss up, but won't blindly go into a fight
+			- Avoids fighting the other monsters unless there is a weakened area that can be easily captured
+			- Focuses on fortifying territory once taken, then resumes expansion after the new location is secure
+			- Fortifies locations under attack, attempts to retake territory when able
+	- Orcs
+		- Capital: Khar Dumak
+			- Description: A fortified war-camp city on the highest point of the Orc Steppe. Ring after ring of palisades has been added with each generation, and a great war-drum tower stands at the centre.
+		- Leader: Warchief Ghorza Bloodmane
+			- Description: An aging but unbroken orc matriarch who has held the clans together through strength and respect, not fear. She’s honorable by orc standards. She’ll respect a worthy enemy, and the Hearthbound may eventually earn a truce rather than a war of extermination.
+		- Champion: Durhak the Unbroken
+			- Description: Ghorza's chosen blood-son and the steppe’s greatest warrior. He wields a greataxe and has never lost a duel. He’s eager to prove himself against the newcomers, and he’s a natural rival-turned-respect arc for players.
+		- Behaviour:
+			- Expands Aggressively
+			- Average Growth Rate
+			- Troops count as 1.25x their number in battle (attacking and defending), but cost 1.5x upkeep
+			- Only ever takes the Capture Node, Raid or Hire Soldiers actions; never builds, upgrades or fortifies
+				- If none of these is possible, the action is spent idle
+			- Attacks anything not owned by orcs, and will take fights it is likely to lose
+			- Commits every available troop to an attack and keeps no reserve in the capital
+			- Moves main army around nomadically, leaving places previously taken relatively undefended
+			- Doesn't prioritize retaking/holding land
+	- Kobolds/Dragons
+		- Capital: Vyrnhallow
+			- A vast mine-city carved deep into the Western Peaks. Its kobold tunnels spiral downward toward a great cavern hoard at the mountain’s heart.
+		- Ruler: Azhvorrath, the Ashen Wyrm
+			- Description: An ancient red dragon who has slept atop her hoard for centuries. The kobolds worship her as a living god. She’s rarely seen, and her will is passed down through priests and omens, so she makes an ideal final-tier threat.
+		- Champion: High Scalecaller Rixx
+			- Description: kobold sorcerer with dragon-blood in his veins, half-scaled and fiercely devout. He leads the kobold war-bands and believes the Hearthbound are a test sent to prove the kobolds worthy of their goddess.
+		- Behaviour:
+			- Expands to defend area surrounding capital
+			- Slow growth rate
+				- Low tier kobold troops are weak, high tier ones are dragons
+			- Fortifies locations surrounding capital, then raids for resources on any nearby nodes when success is almost guaranteed
+			- Will capture land beyond the immediate capital surroundings, but then will leave that territory low tier and focus on bringing back wealth to the capital
+	- Undead
+		- Capital: Morvane
+			- Description: A sunken necropolis in the Blightmarsh, half-swallowed by black water. It was once a city of a civilization that fell long before the exiles arrived.
+		- Ruler: The Pale Regent, Lord Caelith Morvane
+			- Description: The city’s last king, who refused to let his people die and bound them all to undeath instead. He’s tragic, cold and patient. He sees the living exiles as a mirror of his own people’s fate, and he believes they’d be better off “preserved.”
+		- Champion: The Hollow Knight, Ser Varric Thane
+			- Description: Once Caelith’s sworn champion and now an armored revenant who cannot rest until his oath is fulfilled. He’s relentless and nearly silent. Lore hints may reveal fragments of the man he was.
+		- Behaviour:
+			- Average growth rate
+			- Raise Dead: gains 25% of every battle's total casualties as new soldiers, whether attacking or defending (see kingdom-stats)
+			- Attacks basically any time a battle can be won, because every battle it fights raises some of the dead
+				- Counts the raised troops as offsetting its own losses when deciding whether a fight is worth it
+	- Elementals
+		- Capital: The Shattered Spire
+			- A jagged crystalline tower in the west, just north of the Hearthbound coast, where the land’s raw elemental forces bleed through. Storms, ice and fire swirl around it at once.
+		- Ruler: The Conclave of Four, four elemental lords of flame, stone, tide and gale, bound in an uneasy balance. 
+			- Description: They’re less a government than an ancient pact. Each lord can be its own boss encounter, with the Conclave as the faction’s endgame.
+		- Champion: Pyrrhis the Unbound
+			- Description: A fire elemental who has broken from the Conclave’s balance and leads the elementals’ aggression against the settlers. He’s the most active elemental threat, and the one players will face long before they ever reach the Conclave.
+		- Behaviour:
+			- Average growth rate
+			- Bound to their land: troops count as 1.5x their number when defending one of their home nodes
+			- Only captures its own home nodes, and retakes them whenever they are lost
+			- When any faction captures or raids one of their nodes, they strike back:
+				- The largest Elemental army captures its way along the shortest path towards the attacker's capital, then raids the capital
+				- The counter-attack ends, and the army falls back to the Elemental capital, as soon as a fight is lost or the next fight looks likely to be lost
+		- NOTE: On the continent map, the Elementals hold the west, just north of the Hearthbound and south of the Kobold peaks.
+	- Hearthbound Kingdom
+		- Capital: Landfall
+		- Leader: Queen Aldra Vayne
+			- Description: She was a minor princess who never expected to rule. When the old kingdom fell, she was the one who got the people onto the ships. She’s practical rather than regal: she counts grain stores herself and knows the names of the harbor workers. Her crown is a plain iron circlet forged from a ship’s anchor chain at Landfall, and the Hearthbound treat it as a symbol of the vow to never be driven from a home again. She’s steady and stubborn, and she quietly carries guilt over the people who didn’t make the crossing.
+		- Champion: Ser Bram Hollowell
+			- A former harbor-watch sergeant, not a noble knight. He earned the title holding the beachhead the night the monsters first came out of the wilds, when the real knights were still unloading the ships. He’s gruff, scarred, and loyal to Aldra as a person more than to the crown. He’s the natural face for recruiting players: he trusts people who show up and fight, regardless of where they came from. He carries a battered tower shield that still bears the old kingdom’s crest, painted over with the Hearthbound hearth.
+		- Behaviour: Player Faction
+			- Tries to hold as much land as possible: secures new conquests before pushing on, and eagerly retakes lost nodes
+			- Average growth rate
+			- Only launches raids it is fairly confident it can win
+			- Tries to ensure distribution of assets matches town need, moving troops to wherever threats are and keeping some in towns, castles and the capital
+	- Dwarves
+		- Capital: Karak Varn
+			- Description: A mountain hold in the far north-east corner of the continent, between the Orc steppe and the Goblin Wilds. Its mines and fungal halls lie behind it, deep in the mountain, reachable only through the hold itself.
+		- Leader: TBD
+		- Champion: TBD
+		- Behaviour:
+			- Slow growth rate
+			- Their resource nodes (Deepdelve Mine, Mithril Deep, Fungal Halls, Stonebeard Granary) sit behind the capital and touch nothing else, so they can't be taken while the capital stands (capitals cannot be captured)
+			- Otherwise sits in the capital; never expands beyond its rear nodes
+			- Attacks any Orc or Goblin node it shares a border with, aiming to knock down the overall tiers of those factions rather than to hold land
+				- Prefers high-tier targets, and only attacks when it is clearly stronger
+				- Does not rebuild or upgrade land it captures, and brings the surviving troops back to the capital afterwards
+	- Map: the continent has about 100 nodes. The Hearthbound hold the southern coast, the Undead the Blightmarsh in the centre, the Elementals the west, the Kobolds the north-west peaks, the Orcs the northern steppe, the Goblins the east, and the Dwarves the north-east corner. Neutral land fills the gaps between them.

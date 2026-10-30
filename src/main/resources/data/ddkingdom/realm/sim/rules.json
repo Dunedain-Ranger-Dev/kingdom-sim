@@ -1,0 +1,296 @@
+{
+  "town": {
+    "food": 2,
+    "wealth": 100,
+    "prod": 4,
+    "wealthMult": 1,
+    "defPerTier": 2
+  },
+  "capitalTier": 5,
+  "castle": [
+    {
+      "food": 0,
+      "defCap": 0,
+      "mult": 1
+    },
+    {
+      "food": -1,
+      "defCap": 10,
+      "mult": 1.5
+    },
+    {
+      "food": -2,
+      "defCap": 15,
+      "mult": 2
+    },
+    {
+      "food": -3,
+      "defCap": 20,
+      "mult": 2.5
+    }
+  ],
+  "castleMaxDef": 50,
+  "foodNode": [
+    0,
+    4,
+    6,
+    8
+  ],
+  "prodNode": [
+    0,
+    20,
+    30,
+    40
+  ],
+  "resource": {
+    "defCap": 1,
+    "garrisonCap": 10
+  },
+  "outpost": {
+    "food": -1,
+    "defCap": 5,
+    "garrisonCap": 10,
+    "warnMove": 10
+  },
+  "upkeep": {
+    "food": 1,
+    "wealth": 100
+  },
+  "shortagePenalty": 10,
+  "growth": {
+    "fast": 2,
+    "normal": 1,
+    "slow": 0.5
+  },
+  "capitalOnlyGrowthMult": 2,
+  "buff": {
+    "costTurns": 2,
+    "duration": 5,
+    "mult": 2
+  },
+  "hire": {
+    "batchSize": 10,
+    "maxBatches": 2,
+    "wealth": 300,
+    "res": 50
+  },
+  "upgrade": {
+    "food": 5,
+    "wealth": 300,
+    "res": 100,
+    "castleRes": 150,
+    "timeBase": 1,
+    "timePerTier": 2
+  },
+  "morale": {
+    "start": 3,
+    "recover": 1,
+    "attacked": 2,
+    "lost": 2
+  },
+  "combat": {
+    "defDivisor": 20,
+    "retreat": 0.25,
+    "captureDevastation": 0.5,
+    "heroicMult": 4,
+    "dice": {
+      "mode": "scaled",
+      "sides": 20,
+      "swing": 0.02,
+      "flat": 1
+    }
+  },
+  "raid": {
+    "foodPer": 0.5,
+    "wealthPer": 10,
+    "prodPer": 1,
+    "maxTurns": 0,
+    "garrisonDmg": 0.25,
+    "devPer10": 0.05,
+    "devMax": 0.25
+  },
+  "fortify": {
+    "cost": 10,
+    "maxSteps": 3,
+    "devPerStep": 0.1
+  },
+  "reinforceBorder": {
+    "def": 1,
+    "dev": 0.1,
+    "neutralIsHostile": false
+  },
+  "repairCost": 100,
+  "wealthTax": {
+    "rate": 0,
+    "free": 3000
+  },
+  "freeRebuildOnCapture": true,
+  "produce": {
+    "payout": 0.5
+  },
+  "importFood": {
+    "enabled": true,
+    "wealthPerFood": 50,
+    "maxPerAction": 5,
+    "duration": 5
+  },
+  "baseActions": 2,
+  "bonusActionCastleTier": 3,
+  "nonCombatActions": {
+    "count": 0,
+    "economyOnly": false
+  },
+  "turnOrder": "rotate",
+  "ai": {
+    "noise": 0.2,
+    "horizon": 25,
+    "foodValue": 50,
+    "resValue": 3,
+    "soldierValue": 40,
+    "personalities": {
+      "balanced": {
+        "aggr": 1,
+        "raid": 0.8,
+        "def": 1,
+        "econ": 1,
+        "mil": 1,
+        "margin": 1.25,
+        "armyRatio": 1,
+        "minArmy": 30
+      },
+      "aggressive": {
+        "aggr": 1.6,
+        "raid": 1.1,
+        "def": 0.7,
+        "econ": 0.8,
+        "mil": 1.4,
+        "margin": 1.1,
+        "armyRatio": 1.4,
+        "minArmy": 40
+      },
+      "defensive": {
+        "aggr": 0.5,
+        "raid": 0.5,
+        "def": 1.6,
+        "econ": 1.1,
+        "mil": 1,
+        "margin": 1.5,
+        "armyRatio": 1.3,
+        "minArmy": 35
+      },
+      "economic": {
+        "aggr": 0.7,
+        "raid": 0.6,
+        "def": 0.9,
+        "econ": 1.5,
+        "mil": 0.7,
+        "margin": 1.3,
+        "armyRatio": 0.8,
+        "minArmy": 25
+      },
+      "goblin": {
+        "aggr": 1.6,
+        "raid": 0.9,
+        "def": 1.1,
+        "econ": 0.8,
+        "mil": 1.4,
+        "margin": 1.05,
+        "raidMargin": 1.1,
+        "armyRatio": 1.3,
+        "minArmy": 40,
+        "targets": "avoidMonsters",
+        "secureNew": 1,
+        "fortifyAttacked": 2,
+        "retake": 1.6
+      },
+      "orc": {
+        "aggr": 1.8,
+        "raid": 1,
+        "def": 0.4,
+        "econ": 0.7,
+        "mil": 1.7,
+        "margin": 1.15,
+        "raidMargin": 1.2,
+        "armyRatio": 1.5,
+        "minArmy": 45,
+        "reserveMult": 0,
+        "capitalReserve": 0,
+        "retake": 0.7,
+        "warOnly": 1,
+        "warHire": 1
+      },
+      "kobold": {
+        "aggr": 0.9,
+        "raid": 3,
+        "def": 1.4,
+        "econ": 1.1,
+        "mil": 1,
+        "margin": 1.4,
+        "raidMargin": 1.5,
+        "armyRatio": 1.2,
+        "minArmy": 30,
+        "homeRadius": 2,
+        "homeBias": 1.6,
+        "wealthRaidBias": 1.5,
+        "upgradeAway": 0
+      },
+      "elemental": {
+        "aggr": 1.2,
+        "raid": 0,
+        "def": 1,
+        "econ": 1,
+        "mil": 1.3,
+        "margin": 1.1,
+        "raidMargin": 1.1,
+        "armyRatio": 1,
+        "minArmy": 30,
+        "targets": "home",
+        "retake": 2,
+        "fortifyAttacked": 2,
+        "capitalReserve": 10,
+        "counter": 1
+      },
+      "hearthbound": {
+        "aggr": 1.3,
+        "raid": 0.8,
+        "def": 1.3,
+        "econ": 1,
+        "mil": 1.2,
+        "margin": 1.3,
+        "raidMargin": 1.3,
+        "armyRatio": 1.2,
+        "minArmy": 35,
+        "rebalance": 1,
+        "leaveBehind": 8,
+        "landValue": 2,
+        "retake": 1.8,
+        "secureNew": 1,
+        "fortifyAttacked": 1.5
+      },
+      "dwarf": {
+        "aggr": 1.3,
+        "raid": 0,
+        "def": 1.2,
+        "econ": 1,
+        "mil": 1.2,
+        "margin": 1.2,
+        "armyRatio": 1.2,
+        "minArmy": 30,
+        "targets": "raze",
+        "raze": 1,
+        "capitalReserve": 10
+      },
+      "undead": {
+        "aggr": 1.5,
+        "raid": 1.4,
+        "def": 0.9,
+        "econ": 0.8,
+        "mil": 1.2,
+        "margin": 1,
+        "raidMargin": 1,
+        "armyRatio": 1.2,
+        "minArmy": 35
+      }
+    }
+  }
+}

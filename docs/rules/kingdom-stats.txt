@@ -1,0 +1,208 @@
+Kingdom Stats:
+	- All Kingdoms should have an associated stat:
+		- Food
+			- Food controls how big of an army a kingdom can field
+			- Food income contributes to their stockpile, from which upkeep and any actions subtract from
+			- Nations will not hire if it causes the total amount of food gained per turn to drop below 0
+				- Food from active Import Food contracts counts toward food gained per turn
+				- Exception is Goblins, who will briefly go negative if it allows them to capture nodes
+			- If a nation's food stockpile drops below zero, the nation's largest garrison is reduced by 10 per turn until there is no longer negative income
+				- A nation is considered in negative income if the amount of food in their stockpile would be reduced to below zero during the upkeep phase
+				- This reduction stacks additively with a wealth shortage
+		- Wealth
+			- Indicator of how much money a faction has, used to upgrade nodes and hire soldiers as well as maintain their armies
+			- If a nation's wealth stockpile drops below zero, the nation's largest garrison is reduced by 10 per turn until there is no longer negative income
+				- A nation is considered in negative income if the amount of wealth in their stockpile would be reduced to below zero during the upkeep phase
+				- This reduction stacks additively with a food shortage
+		- Resources
+			- Resources represent things like wood, iron, dirt, stone, etc.
+			- Resources can be spent to increase Defense at individual nodes, as well as used in army recruitment (but not maintenance)
+		- Army
+			- Represents how many troops are under the kingdom's control
+			- Army can be increased by spending wealth and resources, but drain a kingdom's food
+			- Every 10 soldiers reduce the overall Food value by 1, and wealth value by 100 (representing meals and paychecks)
+				- This rounds up, so if a kingdom had 5 soldiers those soldiers would still cost 1 food and 100 wealth during upkeep
+				- Orcs pay 1.5x upkeep (1.5 food and 150 wealth per 10 soldiers, rounded up), to balance their strength bonus
+			- Soldiers are recruited in batches of 10
+			- Troop strength
+				- Orc troops count as 1.25x their number, both when attacking and when defending
+				- Elemental troops count as 1.5x their number when defending one of their home nodes
+				- Strength multiplies a side's troop count in the combat formulas, and surviving troops are divided by it again to get the number of soldiers left
+			- Raise Dead (Undead only)
+				- After any Capture or Raid the Undead fight in, attacking or defending, they gain 25% of the battle's total casualties (both sides combined, rounded down) as new soldiers
+				- Raised troops join the Undead force at that node; if the Undead lost the node, they rise at their strongest adjacent node, or the capital if there is none
+				- Garrison caps still apply, and any overflow goes to the capital
+		- Growth
+			- Represents a multiplier on the recruitment of soldiers
+				- Fast growth = 2x, Normal = 1x, Slow = .5x
+			- Kingdoms can receive situational buffs to this number
+				- If a kingdom only controls a capital, this number is doubled
+				- If a kingdom spends wealth, they can temporarily double this number for 5 turns
+					- This buff costs 2 turns of that nation's gross wealth income, based on their wealth income for that turn
+						- EX: If a nation has 300 wealth and produces 200 per turn, they cannot purchase the buff as the cost is 400.
+							- If this number increases to 250 the next time the kingdom's production phase, the new cost is 500
+					- This buff can be purchased during the production phase without the use of an action, but cannot be purchased at any other time
+				- All multipliers stack multiplicatively, so goblins who only control their capital and purchase the buff would have 8x recruitment for 5 turns
+	- All nodes have several stats associated with them
+		- Food
+			- This should be displayed as a net impact on the kingdom's food total
+		- Garrison
+			- This should be a count of how many troops are currently stationed at the node
+			- This number should be capped for resource nodes
+		- Defense
+			- This should be a realized value of how well protected the settlement is
+			- This number is capped for resource nodes at 1, Castles at 20, and Town cap scales based on tier
+				- Town formula is: cap = tier * 2
+			- Defense resets to 0 upon successful capture of a node
+		- Wealth
+			- A fixed amount of wealth the node adds per turn
+		- Production
+			- A fixed amount the node adds to the kingdom's resource pool per turn
+		- Morale
+			- Morale is a scale of 1-10
+			- Morale starts at 3 on a newly captured node, and recovers at a rate of 1 per turn to the maximum of 10
+			- Morale is reduced by 2 when attacked, and the loser of the battle (assuming the settlement isn't captured) will also lose 2
+				- EX: If a garrison is attacked by a nation using the raid action and loses, they would suffer a -4 to their morale
+				- EX: If a nation attacks a node unsuccessfully, the defender will lose 2 morale for being attacked, and the attacker will lose 2 morale for losing the battle
+			- Morale acts as a multiplier on Defense, with 10 being 1x and 1 being .1x (so it can only be a penalty)
+				- Final Defense Value = (Base Settlement Defense * Settlement multipliers) * (Morale/10)
+			- Morale cannot drop below one, and capital morale cannot be reduced below 10
+		- Devastation
+			- Devastation is an indicator of how damaged the node is
+			- This value functions as a multiplier ranging from 0 to 1 and is applied to the node's production of food, wealth, and resources during the production phase of the turn
+				- It also applies to any produce resource actions taken
+				- Production is affected by (1 - devastation)
+			- Devastation is manifested in game as nodes missing random blocks (Minecraft implementation only)
+			- Devastation for all nodes starts at 0, and is capped at 1
+	- There are several different types of nodes, but all fall into one of these categories
+		- Town
+			- Town nodes should add Wealth, with a bonus multiplier of 2x because they're towns
+				- Base production value for a Tier 1 town is 2 food, 100 Wealth, and 4 production
+					- Capitals count as Tier 5 towns, so a capital produces 300 Wealth per turn
+			- Town nodes should also have a tier associated with them, from 0 to 5, which acts as a multiplier on all of their stats except garrison and defense
+				- Tier 0 is "Ruins", which has no stats, only action that can be taken is rebuild
+				- Tier 1 is "Hamlet"
+				- Tier 2 is "Village"
+				- Tier 3 is "Town"
+				- Tier 4 is "City"
+				- Tier 5 is "Fortified City"
+				- A higher tier should give a multiplier to the town's stats
+					- multiplier = min(tier, 1) * (1 + 0.5 * (tier-1))
+		- Castle
+			- Castles should receive multipliers to their defense value based on the tier that they are
+				- These multipliers are applied after the cap is in place, maximum defense value should be 50
+			- Castles should have tiers 0 to 3
+				- Tier 0 is "Ruins", which indicates the castle was recently captured, defense cap is 0, food value is 0
+				- Tier 1 is "Hold", which has a 1.5x multiplier to its Defense value, defense cap is 10, fixed food value is -1
+				- Tier 2 is "Fort", which has a 2x multiplier to its Defense value, defense cap is 15, fixed food value is -2
+				- Tier 3 is "Citadel", which has a 2.5x multiplier to its Defense value, defense cap is 20, fixed food value is -3
+		- Capital
+			- Capitals should be locked to 10 morale, and are always classified as T5 Towns
+			- Capitals CANNOT be captured, and will always stay affiliated with one nation
+			- Capitals CAN be raided
+		- Resource
+			- Resource nodes should have higher Food or Production values
+			- Resource nodes have a cap of 10 Garrison
+			- Production nodes should have tiers as well, from 0 to 3
+				- Tier 0 is "Ruins", and produces no resource, only action is rebuild
+				- Tier 1 is "Small Survey Site", produces 20 production
+				- Tier 2 is "Rich Survey Site", produces 30 production
+				- Tier 3 is "Abundant Survey Site", produces 40 production
+			- Food nodes should have tiers as well, from 0 to 3
+				- Tier 0 is "Ruins", and produces no resource, only action is rebuild
+				- Tier 1 is "Garden", produces 4 food
+				- Tier 2 is "Farm", produces 6 food
+				- Tier 3 is "Plantation", produces 8 food
+		- Outposts
+			- Outpost nodes function as information gatherers, and can send warnings of incoming attacks
+			- Outposts have two tiers
+				- Tier 0 is "Ruins", and provides no information, defense cap is 0, fixed food value is 0
+				- Tier 1 is "Watchtower", and provides insight into the stats of all adjacent nodes, including hostile and neutral ones, defense cap is 5, garrison cap is 10, fixed food value is -1
+					- If the watchtower is attacked, the defender is allowed to move up to 10 garrison from any of their other nodes to one adjacent to the watchtower
+						- This action cannot be used to reinforce the watchtower itself
+			- Raiding an outpost does not steal resources for the attacker
+		- All nodes are upgraded with the following costs:
+			- Food: (new tier * 5)
+			- Wealth:  (new tier * 300)
+			- Resources: (new tier * 100) EXCEPT castles, which require (new tier * 150)
+		- Rebuilding a node to Tier 1 can be done for free, but still requires the Upgrade a Node action to be taken
+			- Exception: a node that is a Ruin once it has been captured (including a Tier 1 node knocked down by the capture) automatically starts rebuilding to Tier 1 for free, without using an action
+				- The rebuild completes during the new owner's next turn
+				- Dwarves do not get this automatic rebuild on land they capture outside their home nodes
+		- Home nodes
+			- Every node except neutral land belongs to one faction's homeland, its home nodes
+			- At the start of the game each faction controls only its capital; every other node is an unowned Tier 0 Ruin
+			- A node stays a home node of its faction whoever controls it
+	- Kingdom Actions/Turns
+		- Turn order is as follows:
+			- Nodes produce resources and contribute to nation stockpile
+			- Upkeep is subtracted from nation stockpile
+			- Any node upgrades complete
+			- Kingdom receives 2 actions, plus an additional action for every Castle at T3
+		- Actions available are as follows:
+			- Reinforce border: All nodes adjacent to a hostile node receive 1 Defense, up to their cap
+				- This action also reduces all devastation in the affected nodes by .1
+			- Send Reinforcements: The nation may shift garrison from one settlement to any friendly settlement, regardless of adjacency
+			- Capture Node: The nation attempts to attack an adjacent node with the intent of occupying it
+				- The attack is performed by allowing the attacker to designate a number of troops in an adjacent garrison to attack the defender's garrison
+				- Successful attacks reduce the node's tier by 1, and changes the owner to the invading kingdom
+				- The strength of each side can be measured with the following formula: 
+					- Defender Power = Garrison × (1 + Final Defense / 20) + Final Defense
+					- Attacker Power = Number of committed troops
+				- For a successful attack, the remaining troops can be calculated as follows:
+					- Surviving Troops = √(Winner Power² − Loser Power²) rounded down
+					- The defender is wiped out completely
+				- For an unsuccessful attack, the remaining troops are calculated as follows:
+					- Attacker: 25% of the attacking force retreats
+					- Defender: Garrison * (Surviving Troops / Defender Power) rounded down
+						- See above for surviving troops formula
+				- All ties go to the defender
+				- Battle rolls: both sides roll a d20 before the battle is decided
+					- Each side's power is multiplied by 1 + (roll − 10.5) × 0.02, from ×0.81 on a 1 to ×1.19 on a 20
+					- The rolled powers are used in every formula here, and the attacker's survivors are divided by its roll multiplier to turn power back into troops
+						- EX: 50 troops against a Defender Power of 30, rolling a 1 against a 20: 40.5 against 35.7, so √(40.5² − 35.7²) ÷ 0.81, rounded down, = 23 survive
+					- Raids and Heroic Conquest roll the same way
+				- Successfully capturing a node automatically causes devastation to increase by .5
+			- Raid: The nation attacks an adjacent node
+				- Attacker must designate a resource to attack for
+				- Acts similarly to Capture Node, but node will not change hands
+				- Resources are stolen from the defender at the following rates, and are calculated based on the surviving number of troops:
+					- .5 food per remaining soldier, rounding down
+					- 10 wealth per remaining soldier
+					- 1 production per remaining soldier
+				- There is no cap on how much a raid can steal, other than what the defender has in their stockpile
+				- Raids can only deal damage to the enemy garrison equal to 25% of the defender's current garrison value
+					- The attacker receives damage equal to the following: Attacker losses = ½ × (Attacker Power − √(Attacker Power² − Defender Power²))
+						- Unsuccessful raids cause the attacker to take damage as though retreating from a failed Capture Node action
+				- Raids do not reduce the tier of a node
+				- Successful raids inflict .05 devastation for every 10 surviving attackers, up to a maximum of .25
+			- Hire soldiers: The kingdom may spend resources to recruit up to 20 soldiers (2 batches), this number is calculated before growth multipliers
+				- Troops cost 300 Wealth and 50 Resources for every 10 soldiers, paid before any multipliers are applied
+				- These troops are placed as garrison in the nation capital, or one of their linked town and castle nodes
+				- Troops cannot be recruited if there is no path from that node to the capital of the recruiting faction (troops can be cut off)
+			- Produce Resources: The kingdom receives bonus resources equal to half (50%) of their current food, wealth, and resource production totals (should be calculated after the node upgrades have completed)
+				- Only node production counts toward this bonus; food from Import Food contracts is not included
+				- Round each bonus down
+			- Fortify a Node: The kingdom spends 10 resources to increase the defense value of a node by 1 up to the node's cap
+				- The kingdom can choose to spend up to three times this value to increase the defense value accordingly
+				- This value is applied to the node's base defense, rather than its modified one
+				- Fortifying a node also reduces that node's devastation value by .1 per 10 resources spent
+			- Upgrade a Node: Starts the process of upgrading a node one tier
+				- This process takes 1 + (new tier * 2) turns to complete
+				- Nodes continue to produce resources equivalent to their original tier, and cannot receive any additional stats EXCEPT garrison
+				- All devastation is cleared from a node on completion of an upgrade
+			- Heroic Conquest: This action is limited to nations whose only node is their capital node
+				- This action functions similarly to the Capture Node action
+				- In this case, the faction's champion is called forth, multiplying their army value by 4 without increasing maintenance costs
+				- This buff disappears after the battle is decided
+				- On a successful attack, the attacker’s survivors = √(Winner Power² − Loser Power²) ÷ 4, rounded down
+					- This only applies to the attacker
+				- On a failed attack, the attacker retreats with 25% of the troops actually sent, not the 4x value
+			- Repair Node: This action reduces the devastation in a single node to 0 for the cost of (Devastation * 100 Resources)
+			- Import Food: The kingdom signs a supply contract, paying wealth to receive food over the next 5 turns
+				- The kingdom chooses an amount of up to 5 food per turn
+				- The full cost is paid up front: (food per turn * 5 turns * 50 Wealth)
+					- EX: Importing 4 food per turn costs 4 * 5 * 50 = 1000 Wealth, and delivers 4 food during each of the kingdom's next 5 production phases
+				- Imported food is added to the kingdom's food income during the production phase, and counts as food gained per turn when deciding whether a nation will hire
+				- Multiple contracts can be active at once, and they stack
+				- Contracts are not affected by devastation, and are not cancelled if the kingdom loses nodes
