@@ -645,7 +645,8 @@
       for (; done < end; done++) {
         const g = new S.Game(sc, cfg, { seed: seed0 + done, maxRounds: rounds, quiet: true });
         for (let i = 0; i < rounds; i++) g.runRound();
-        const counts = ids.map((id) => g.ownedNodes(id).length), best = Math.max(...counts);
+        // The leader holds the most land by value: the tiers of its nodes added up.
+        const counts = ids.map((id) => g.ownedNodes(id).reduce((t, n) => t + n.tier, 0)), best = Math.max(...counts);
         const leaders = ids.filter((id, i) => counts[i] === best);
         for (const id of ids) {
           const a = agg[id], k = g.K[id], s = k.stats;
@@ -669,7 +670,7 @@
     const ks = sc.kingdoms;
     const per = (v) => fmt(v / games);
     const pct = (a, b) => (b ? Math.round(a / b * 100) + '%' : '–');
-    let t1 = `<div class="panel stack"><h2>Results over ${games} games of ${rounds} rounds</h2><p class="muted" style="margin:0">Averages per game. Ran in ${Math.round(ms)} ms. "Leads" = share of games where the kingdom ended holding the most nodes (ties split).</p><div class="table-wrap"><table>
+    let t1 = `<div class="panel stack"><h2>Results over ${games} games of ${rounds} rounds</h2><p class="muted" style="margin:0">Averages per game. Ran in ${Math.round(ms)} ms. "Leads" = share of games where the kingdom ended with the most land by value, the tiers of its nodes added up (ties split).</p><div class="table-wrap"><table>
       <tr><th>Kingdom</th><th>Leads</th><th>Nodes</th><th>Army</th><th>Food</th><th>Gold</th><th>Res</th><th>Captures (won/tried)</th><th>Raids (won/tried)</th><th>Hired</th><th>Lost in battle</th><th>Lost to shortage</th><th>Shortage turns</th><th>Buffs</th></tr>`;
     for (const k of ks) {
       const a = agg[k.id];
@@ -746,6 +747,7 @@
     'ai.noise': 'random spread on AI choices', 'ai.horizon': 'turns the AI plans ahead', 'ai.soldierValue': 'how much the AI values one soldier (in gold)',
     'produce.payout': 'share of one turn of node output paid out (0.5 = 50%)', 'importFood.goldPerFood': 'gold per 1 food delivered', 'importFood.maxPerAction': 'most food per turn one contract can add', 'importFood.duration': 'turns a contract delivers food', 'importFood.enabled': 'allow the Import food action',
     'ai.foodValue': 'gold value of 1 food to the AI', 'ai.resValue': 'gold value of 1 resource to the AI',
+    'combat.captureTierLoss': 'a capture knocks the node down a tier (off: it keeps its tier; kingdoms that raze still knock it down)',
     'combat.dice.mode': 'none, scaled (each side\'s power × 1 + (roll − middle) × swing) or flat (roll × flat added to power)',
     'combat.dice.sides': 'sides on each die', 'combat.dice.swing': 'scaled: power change per point from the middle (0.02 on a d20 = ×0.81 to ×1.19)', 'combat.dice.flat': 'flat: power added per point rolled',
     'produce.cooldown': 'turns before Produce resources can be used again (0 = any time)',
@@ -767,7 +769,7 @@
     counter: '1 = when attacked, push towards the attacker\'s capital and raid it; fall back after a lost or losing fight',
     warOnly: '1 = only captures or raids, including fights it will lose (down to its min win); with no fight, it takes the best other action',
     minWin: 'with scaled dice, the lowest chance of winning it attacks at (0 = use margin)', raidMinWin: 'same, for raids (0 = use min win)',
-    guardMult: 'multiplier on the troops it leaves on border nodes', warHire: '1 = a war-only faction may also hire', raze: '1 = values captures by the tier knocked off, never upgrades taken land and brings the army home after',
+    guardMult: 'multiplier on the troops it leaves on border nodes', developTier: 'builds its nodes up to this tier before expanding (0 = off)', developExpand: 'value × on new land while it has nodes to build up', developBonus: 'extra value on upgrading a node below its develop tier', warHire: '1 = a war-only faction may also hire', raze: '1 = values captures by the tier knocked off, never upgrades taken land and brings the army home after',
   };
   const humanize = (k) => k.replace(/([A-Z])/g, ' $1').replace(/^./, (c) => c.toUpperCase());
   function cfgInput(path, v) {
@@ -865,8 +867,8 @@
     'Morale: the target always loses 2 for being attacked. If the attack fails, the attacker\'s source node loses 2. A defender that loses a raid loses 2 more. A captured node resets to morale 3. Morale never drops below 1, and capitals stay at 10.',
     'Raids steal 1 food, 20 gold or 2 resources per surviving attacker, limited only by what the defender has. Setting "Max turns" under Raid caps it at that many turns of the node\'s output. Raiding an outpost steals nothing. Neutral nodes cannot be raided. Failed raids use the failed-capture formulas for both sides.',
     'The watchtower warning is applied automatically: when a watchtower is attacked, the defender moves up to 10 troops from its largest other garrison to its weakest node next to the watchtower.',
-    'Upgrades take 1 + 2 × new tier of the owner\'s turns, counted down in the upgrade phase. A node that is upgrading cannot be fortified, repaired or reinforced. Capturing an upgrading node cancels the upgrade.',
-    'Free rebuild on capture: a node that is a ruin (T0) after being captured, including a T1 node knocked down by the capture, starts a free upgrade to T1 that costs no action or stockpile and completes in the new owner\'s next turn. Turn it off under General.',
+    'Upgrades take 1 + new tier of the owner\'s turns (Tier 3 in 4), and cost new tier × 2.5 food, × 150 gold and × 50 resources (75 for castles), counted down in the upgrade phase. A node that is upgrading cannot be fortified, repaired or reinforced. Capturing an upgrading node cancels the upgrade.',
+    'Captures keep the node\'s tier (Capture tier loss under Combat brings back knocking it down a tier); the Dwarves raze, so theirs still do. Free rebuild on capture: a node that is a ruin (T0) after being captured starts a free upgrade to T1 that costs no action or stockpile and completes in the new owner\'s next turn. Turn it off under General.',
     "Produce Resources pays 50% (configurable) of the nodes' current per-turn output, after devastation. Imported food is not included, and negative net food counts as 0. It can be given a cooldown under Produce (off by default).",
     "Import food is an action: pay food × turns × 50 gold up front, receive that food in each of your next 5 production phases. Contracts stack, and imported food counts as food income, including for the \"won't hire into negative food\" rule. Losing nodes does not cancel a contract.",
     'Reinforce border treats only nodes owned by other kingdoms as hostile, not neutral nodes (configurable).',
@@ -878,6 +880,7 @@
     'Elementals have normal growth, fight at ×1.5 troop strength when defending one of their own home nodes, only capture their own home nodes and value retaking them twice as much. When any kingdom captures or raids one of their nodes, they counter-attack along the shortest path towards that kingdom\'s capital, then raid it for gold, falling back after any lost fight or when the next fight would be lost.',
     'Dwarves have slow growth and sit in their capital in the north-east corner, with resource nodes behind it that only the capital touches. They attack Orc and Goblin nodes on any shared border to knock their tiers down, don\'t get the free rebuild on land they take, never upgrade it, and send the troops left there back to the capital.',
     'Undead raise dead: after any capture or raid they fight in, attacking or defending, they gain 25% of the battle\'s total casualties (both sides, rounded down). Raised troops join the Undead force at that node; if the Undead lost the node, they rise at its strongest adjacent Undead node or the capital. Their AI counts the troops it will raise as offsetting its losses.',
+    'Methodical factions build up their land before expanding (develop tier, develop expand and develop bonus in the personality table): Hearthbound, Kobolds, Elementals and Dwarves to Tier 3, Goblins and Undead to Tier 2. While one of their nodes is below that and they can afford the upgrade, new land is worth a fifth of the usual and the upgrade 1,000 more.',
     'Hearthbound try to hold as much land as possible: territory is worth twice as much to them, they fortify new conquests before pushing on, retake lost nodes eagerly, move troops to wherever threats are, and keep at least 8 troops in towns, castles and the capital.',
   ];
   $('notes').innerHTML = NOTES.map((n) => `<li>${esc(n)}</li>`).join('');

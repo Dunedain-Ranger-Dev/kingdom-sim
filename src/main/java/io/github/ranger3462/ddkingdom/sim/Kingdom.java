@@ -8,7 +8,7 @@ import java.util.Map;
 /** A kingdom in a game: who it is (from its {@link SimMap.KingdomSetup}), its stockpiles, and what the AI remembers. */
 public final class Kingdom {
     public final String id, name, color, growth, ai;
-    public final boolean player, goblinRule, noFreeRebuild;
+    public final boolean player, goblinRule, noFreeRebuild, razes;
     public final double strength, homeDefStrength, upkeepMult, raiseDead;
     public final Double defStrength;
     public final List<String> foes;
@@ -49,6 +49,8 @@ public final class Kingdom {
     /** What it did over a game, for batch reports. */
     public static final class Stats {
         public final Map<String, Integer> actions = new LinkedHashMap<>();
+        /** Captures and raids it launched, by whom they were aimed at ("none" for unowned land). */
+        public final Map<String, Integer> attacksOn = new LinkedHashMap<>();
         public int capturesTried, capturesWon, raidsTried, raidsWon, hired, battleLosses, kills, shortageLosses, foodShortTurns,
                 goldShortTurns, buffs, nodesGained, nodesLost, turns, counters, raised, imported;
         /** Attacks the dice turned: won that would have been lost without them, or lost that would have been won. */
@@ -67,6 +69,7 @@ public final class Kingdom {
         player = s.player;
         goblinRule = s.goblinRule;
         noFreeRebuild = s.noFreeRebuild;
+        razes = s.razes;
         strength = s.strength == 0 ? 1 : s.strength;
         defStrength = s.defStrength;
         homeDefStrength = s.homeDefStrength;

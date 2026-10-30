@@ -47,6 +47,8 @@ public final class SimMap {
         public List<String> foes = new ArrayList<>();
         /** Gets no free rebuild on land it captures outside its home nodes. */
         public boolean noFreeRebuild;
+        /** Its captures always knock a node down a tier, whatever the rules say (the Dwarves). */
+        public boolean razes;
         /** Rounds a counter-attacking kingdom builds up at home before giving the grudge up (0: none). */
         public int counterPatience;
     }

@@ -113,6 +113,8 @@ public final class Rules {
 
     public static final class Combat {
         public double defDivisor, retreat, captureDevastation, heroicMult;
+        /** Whether a capture knocks the node down a tier. Off: it keeps its tier (kingdoms that raze still knock it down). */
+        public boolean captureTierLoss = true;
         /** Dice in battles (null or mode "none": none). */
         public Dice dice;
     }

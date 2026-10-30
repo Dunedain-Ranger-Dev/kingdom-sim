@@ -1,6 +1,8 @@
 package io.github.ranger3462.ddkingdom.sim;
 
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 
@@ -75,39 +77,103 @@ public final class SimMain {
         return out.toString().trim();
     }
 
+    /** What one kingdom did, summed over a batch. */
+    private static final class Totals {
+        double endNodes, landValue, avgNodes, peakNodes, maxPeakNodes, tierSum, tierGames, landTierSum, landTierGames, avgArmy, peakArmy, maxPeakArmy, leads;
+        double conquests, conquestsWon, raids, raidsWon, stolenFood, stolenGold, stolenRes, goldEnd;
+        final Map<String, Double> attacksOn = new LinkedHashMap<>();
+    }
+
+    /**
+     * The batch report, per kingdom: nodes held at the end, on average over the game and at its peak; the average tier of
+     * its nodes at the end (capitals left out); its average and peak army; the conquests and raids it launched (and won);
+     * what its raids stole; and whom its attacks were aimed at.
+     */
     private static void report(SimMap map, Rules rules, int seed, int games, int rounds) {
         long start = System.currentTimeMillis();
-        Map<String, double[]> per = new LinkedHashMap<>(); // nodes, army, gold, leads, captures, raids
+        Map<String, Totals> per = new LinkedHashMap<>();
         Map<String, Integer> actions = new LinkedHashMap<>();
-        double ruins = 0, unowned = 0, captures = 0, raids = 0, attacks = 0, attacksWon = 0, upsets = 0;
         int totalActions = 0;
+        double ruins = 0, unowned = 0, upsets = 0, attacks = 0;
         for (int s = seed; s < seed + games; s++) {
             Game game = play(map, rules, s, rounds);
             String leader = null;
             int most = -1;
             for (Kingdom k : game.kingdoms) {
-                int nodes = game.ownedNodes(k.id).size();
-                double[] row = per.computeIfAbsent(k.id, id -> new double[6]);
-                row[0] += nodes;
-                row[1] += game.army(k.id);
-                row[2] += k.gold;
-                row[4] += k.stats.capturesWon;
-                row[5] += k.stats.raidsWon;
-                if (nodes > most) {
-                    most = nodes;
+                Totals t = per.computeIfAbsent(k.id, id -> new Totals());
+                List<Node> owned = game.ownedNodes(k.id);
+                t.endNodes += owned.size();
+                // The leader holds the most land by value: the tiers of its nodes added up.
+                int value = 0;
+                for (Node n : owned) {
+                    value += n.tier;
+                }
+                t.landValue += value;
+                if (value > most) {
+                    most = value;
                     leader = k.id;
                 }
-                captures += k.stats.capturesWon;
-                raids += k.stats.raidsWon;
-                attacks += k.stats.capturesTried + k.stats.raidsTried;
-                attacksWon += k.stats.capturesWon + k.stats.raidsWon;
+                double nodeSum = 0, armySum = 0, nodePeak = 0, armyPeak = 0;
+                int rows = 0;
+                for (Game.Snapshot snap : game.history) {
+                    if (snap.round() == 0) {
+                        continue;
+                    }
+                    Game.Row row = snap.kingdoms().get(k.id);
+                    nodeSum += row.nodes();
+                    armySum += row.army();
+                    nodePeak = Math.max(nodePeak, row.nodes());
+                    armyPeak = Math.max(armyPeak, row.army());
+                    rows++;
+                }
+                t.avgNodes += rows == 0 ? 0 : nodeSum / rows;
+                t.avgArmy += rows == 0 ? 0 : armySum / rows;
+                t.peakNodes += nodePeak;
+                t.peakArmy += armyPeak;
+                t.maxPeakNodes = Math.max(t.maxPeakNodes, nodePeak);
+                t.maxPeakArmy = Math.max(t.maxPeakArmy, armyPeak);
+                double tiers = 0;
+                int counted = 0;
+                for (Node n : owned) {
+                    if (n.type != NodeType.CAPITAL) {
+                        tiers += n.tier;
+                        counted++;
+                    }
+                }
+                if (counted > 0) {
+                    t.tierSum += tiers / counted;
+                    t.tierGames++;
+                }
+                // The same without watchtowers, which can't go above Tier 1.
+                double landTiers = 0;
+                int land = 0;
+                for (Node n : owned) {
+                    if (n.type != NodeType.CAPITAL && n.type != NodeType.OUTPOST) {
+                        landTiers += n.tier;
+                        land++;
+                    }
+                }
+                if (land > 0) {
+                    t.landTierSum += landTiers / land;
+                    t.landTierGames++;
+                }
+                t.conquests += k.stats.capturesTried;
+                t.conquestsWon += k.stats.capturesWon;
+                t.raids += k.stats.raidsTried;
+                t.raidsWon += k.stats.raidsWon;
+                t.stolenFood += k.stats.stolenFood;
+                t.stolenGold += k.stats.stolenGold;
+                t.stolenRes += k.stats.stolenRes;
+                t.goldEnd += k.gold;
+                k.stats.attacksOn.forEach((target, n) -> t.attacksOn.merge(target, (double) n, Double::sum));
                 upsets += k.stats.upsets;
+                attacks += k.stats.capturesTried + k.stats.raidsTried;
                 for (Map.Entry<String, Integer> e : k.stats.actions.entrySet()) {
                     actions.merge(e.getKey(), e.getValue(), Integer::sum);
                     totalActions += e.getValue();
                 }
             }
-            per.get(leader)[3]++;
+            per.get(leader).leads++;
             for (Node n : game.nodes) {
                 if (n.type != NodeType.CAPITAL) {
                     if (n.tier == 0 && !(n.upgrade != null && n.upgrade.free)) {
@@ -119,16 +185,37 @@ public final class SimMain {
                 }
             }
         }
-        System.out.printf(Locale.ROOT, "%s: %d games of %d rounds (%d ms)%n", map.name, games, rounds, System.currentTimeMillis() - start);
-        System.out.printf(Locale.ROOT, "  ruins %.1f | unowned %.1f | captures %.1f | raids %.1f (per game)%n", ruins / games, unowned / games,
-                captures / games, raids / games);
-        System.out.printf(Locale.ROOT, "  attacks won %.0f%% | turned by the dice %.1f%% of attacks%n", 100 * attacksWon / Math.max(1, attacks),
+        double g = games;
+        System.out.printf(Locale.ROOT, "%s: %d games of %d rounds (%d ms). Averages per game; peaks are the average game's peak, then the highest in any game. Tier: of its nodes at the end, capitals left out (tier*: watchtowers left out too). Value: its nodes' tiers added up; leads: the most value at the end.%n",
+                map.name, games, rounds, System.currentTimeMillis() - start);
+        System.out.printf(Locale.ROOT, "  ruins at the end %.1f | unowned %.1f | battles turned by the dice %.1f%%%n", ruins / g, unowned / g,
                 100 * upsets / Math.max(1, attacks));
-        System.out.printf(Locale.ROOT, "  %-6s %7s %7s %8s %9s %6s %7s%n", "", "nodes", "army", "gold", "captures", "raids", "leads");
-        for (Map.Entry<String, double[]> e : per.entrySet()) {
-            double[] r = e.getValue();
-            System.out.printf(Locale.ROOT, "  %-6s %7.1f %7.0f %8.0f %9.1f %6.1f %6.0f%%%n", e.getKey(), r[0] / games, r[1] / games, r[2] / games, r[4] / games,
-                    r[5] / games, 100 * r[3] / games);
+        System.out.printf(Locale.ROOT, "  %-4s %6s %6s %6s %11s %5s %5s %6s %11s %14s %13s %21s %6s %6s%n", "", "nodes", "value", "avg", "peak", "tier", "tier*", "army", "peak army",
+                "conquests(won)", "raids(won)", "stolen food/gold/res", "gold", "leads");
+        for (Map.Entry<String, Totals> e : per.entrySet()) {
+            Totals t = e.getValue();
+            System.out.printf(Locale.ROOT, "  %-4s %6.1f %6.1f %6.1f %5.1f / %-3.0f %5.2f %5.2f %6.0f %5.0f / %-4.0f %7.1f (%4.1f) %6.1f (%4.1f) %6.0f/%6.0f/%6.0f %6.0f %5.0f%%%n",
+                    e.getKey(), t.endNodes / g, t.landValue / g, t.avgNodes / g, t.peakNodes / g, t.maxPeakNodes, t.tierGames == 0 ? 0 : t.tierSum / t.tierGames,
+                    t.landTierGames == 0 ? 0 : t.landTierSum / t.landTierGames,
+                    t.avgArmy / g, t.peakArmy / g, t.maxPeakArmy, t.conquests / g, t.conquestsWon / g, t.raids / g, t.raidsWon / g,
+                    t.stolenFood / g, t.stolenGold / g, t.stolenRes / g, t.goldEnd / g, 100 * t.leads / g);
+        }
+        List<String> targets = new ArrayList<>(per.keySet());
+        targets.add("none");
+        System.out.println("  attacks aimed at (% of each kingdom's conquests and raids):");
+        StringBuilder head = new StringBuilder("  " + " ".repeat(4));
+        for (String target : targets) {
+            head.append(String.format(Locale.ROOT, "%9s", target.equals("none") ? "unowned" : target));
+        }
+        System.out.println(head);
+        for (Map.Entry<String, Totals> e : per.entrySet()) {
+            double total = e.getValue().attacksOn.values().stream().mapToDouble(Double::doubleValue).sum();
+            StringBuilder row = new StringBuilder(String.format(Locale.ROOT, "  %-4s", e.getKey()));
+            for (String target : targets) {
+                double n = e.getValue().attacksOn.getOrDefault(target, 0.0);
+                row.append(target.equals(e.getKey()) ? String.format(Locale.ROOT, "%9s", "-") : String.format(Locale.ROOT, "%8.0f%%", total == 0 ? 0 : 100 * n / total));
+            }
+            System.out.println(row);
         }
         StringBuilder mix = new StringBuilder("  actions:");
         int total = totalActions;

@@ -865,6 +865,7 @@ public final class Game {
         Combat.Dice dice = Combat.Dice.roll(c.combat.dice, rand);
         Combat.Battle r = Combat.capture(c, troops, g, dp, heroic, strength(kid), dice);
         k.stats.capturesTried++;
+        k.stats.attacksOn.merge(defender == null ? "none" : defender, 1, Integer::sum);
         if (dice.rolled() && r.win() != Combat.capture(c, troops, g, dp, heroic, strength(kid)).win()) {
             k.stats.upsets++;
         }
@@ -890,7 +891,9 @@ public final class Game {
             k.lost.remove(target.id);
             target.owner = kid;
             target.capturedRound = round;
-            target.tier = Math.max(0, target.tier - 1);
+            if (c.combat.captureTierLoss || k.razes) {
+                target.tier = Math.max(0, target.tier - 1);
+            }
             target.defense = 0;
             target.morale = c.morale.start;
             target.devastation = r2(Math.min(1, target.devastation + c.combat.captureDevastation));
@@ -1063,6 +1066,7 @@ public final class Game {
         Combat.Dice dice = Combat.Dice.roll(c.combat.dice, rand);
         Combat.Battle r = Combat.raid(c, troops, g, dp, strength(kid), dice);
         k.stats.raidsTried++;
+        k.stats.attacksOn.merge(defender, 1, Integer::sum);
         if (dice.rolled() && r.win() != Combat.raid(c, troops, g, dp, strength(kid)).win()) {
             k.stats.upsets++;
         }

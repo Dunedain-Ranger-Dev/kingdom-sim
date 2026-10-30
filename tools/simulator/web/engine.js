@@ -24,7 +24,7 @@
     aggr: 1, raid: 0.8, def: 1, econ: 1, mil: 1, margin: 1.25, raidMargin: 0, armyRatio: 1, minArmy: 30,
     targets: 'any', reserveMult: 1, capitalReserve: 0, retake: 1, secureNew: 0, fortifyAttacked: 1,
     homeRadius: 0, homeBias: 1, upgradeAway: 1, goldRaidBias: 1, burst: 0, burstRatio: 2, rebalance: 0, leaveBehind: 0, landValue: 1,
-    counter: 0, warOnly: 0, warHire: 0, raze: 0, minWin: 0, raidMinWin: 0, guardMult: 1,
+    counter: 0, warOnly: 0, warHire: 0, raze: 0, minWin: 0, raidMinWin: 0, guardMult: 1, developTier: 0, developExpand: 1, developBonus: 0,
   };
 
   const TIER_NAMES = {
@@ -611,7 +611,7 @@
         delete k.lost[target.id];
         target.owner = kid;
         target.capturedRound = this.round;
-        target.tier = Math.max(0, target.tier - 1);
+        if (c.combat.captureTierLoss !== false || k.razes) target.tier = Math.max(0, target.tier - 1);
         target.defense = 0;
         target.morale = c.morale.start;
         target.devastation = r2(Math.min(1, target.devastation + c.combat.captureDevastation));
@@ -1058,7 +1058,7 @@
       };
       const captureGain = (t) => {
         if (P.raze && t.home !== kid) return 200 + 400 * t.tier;
-        const afterTier = Math.max(c.freeRebuildOnCapture ? 1 : 0, t.tier - 1);
+        const afterTier = Math.max(c.freeRebuildOnCapture ? 1 : 0, t.tier - (c.combat.captureTierLoss !== false || k.razes ? 1 : 0));
         // Territory is worth something on its own; castles also for defense and (at T3) an extra action.
         const base = (300 + (t.owner ? 150 : 0)) * P.landValue + (t.type === 'castle' ? 250 + 200 * afterTier : 0);
         let g = afterTier === 0
@@ -1071,7 +1071,18 @@
       // Behaviour: new conquests that still need securing before expanding again.
       const unsecured = P.secureNew ? owned.filter((n) => recent(n.capturedRound, 8) && n.type !== 'capital' &&
         (n.defense < this.defCap(n) || this.defPower(n) < this.maxAdjThreat(n, kid) * 1.2)) : [];
-      const expandMult = unsecured.length ? 0.35 : 1;
+      let expandMult = unsecured.length ? 0.35 : 1;
+      // Behaviour: methodical factions build their land up to developTier before expanding further.
+      const undeveloped = new Set();
+      if (P.developTier > 0) {
+        for (const n of owned) {
+          if (n.type !== 'capital' && !n.upgrade && n.tier < Math.min(P.developTier, MAX_TIER[n.type]) && !(P.raze && n.home !== kid)) {
+            const cost = this.upgradeCost(n);
+            if (this.goldToPay(k, cost.food, cost.gold, cost.res) >= 0) undeveloped.add(n);
+          }
+        }
+        if (undeveloped.size) expandMult *= P.developExpand;
+      }
       const attacks = !P.burst;
       const dice = diceOn(c.combat.dice);
       // War-only kingdoms (the Orcs) take fights whatever the odds, unless they have a risk appetite to hold them to.
@@ -1302,6 +1313,7 @@
           if (cost.newTier === c.bonusActionCastleTier) gain += V(inc) * eff * 0.5;
         }
         if (n.type === 'outpost') gain += this.maxAdjThreat(n, kid) > 0 ? 150 : 20;
+        if (undeveloped.has(n)) gain += P.developBonus;
         // What it spends: the food and resources it has, and gold for the rest.
         const spent = { food: Math.min(cost.food, k.food), gold: this.goldToPay(k, cost.food, cost.gold, cost.res), prod: Math.min(cost.res, k.res) };
         add(P.econ * (gain - V(spent)), { type: 'upgrade', node: n.id });

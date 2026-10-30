@@ -14,7 +14,7 @@ public final class Personality {
             {"aggr": 1, "raid": 0.8, "def": 1, "econ": 1, "mil": 1, "margin": 1.25, "raidMargin": 0, "armyRatio": 1, "minArmy": 30,
              "targets": "any", "reserveMult": 1, "capitalReserve": 0, "retake": 1, "secureNew": 0, "fortifyAttacked": 1,
              "homeRadius": 0, "homeBias": 1, "upgradeAway": 1, "goldRaidBias": 1, "burst": 0, "burstRatio": 2, "rebalance": 0,
-             "leaveBehind": 0, "landValue": 1, "counter": 0, "warOnly": 0, "warHire": 0, "raze": 0, "minWin": 0, "raidMinWin": 0, "guardMult": 1}""";
+             "leaveBehind": 0, "landValue": 1, "counter": 0, "warOnly": 0, "warHire": 0, "raze": 0, "minWin": 0, "raidMinWin": 0, "guardMult": 1, "developTier": 0, "developExpand": 1, "developBonus": 0}""";
 
     /** Weights on attacking, raiding, defending, the economy and the military. */
     public double aggr, raid, def, econ, mil;
@@ -60,6 +60,12 @@ public final class Personality {
     public double minWin, raidMinWin;
     /** Multiplier on the guard the AI leaves on its frontier nodes (Rules.Guard): the Orcs leave theirs "relatively undefended". */
     public double guardMult;
+    /**
+     * Methodical factions build up their land before expanding: while it holds a node below {@code developTier} (or the
+     * node type's highest tier) that it can afford to upgrade, it values new land at {@code developExpand} of the usual,
+     * and upgrading such a node is worth {@code developBonus} more. 0 for none.
+     */
+    public double developTier, developExpand, developBonus;
 
     /** The personality named {@code name}, or "balanced" if there's none by that name. */
     public static Personality of(Rules rules, String name) {

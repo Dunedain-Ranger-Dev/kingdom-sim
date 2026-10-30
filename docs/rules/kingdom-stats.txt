@@ -122,11 +122,11 @@ Kingdom Stats:
 						- This action cannot be used to reinforce the watchtower itself
 			- Raiding an outpost does not steal resources for the attacker
 		- All nodes are upgraded with the following costs:
-			- Food: (new tier * 5)
-			- Gold:  (new tier * 300)
-			- Resources: (new tier * 100) EXCEPT castles, which require (new tier * 150)
+			- Food: (new tier * 2.5)
+			- Gold:  (new tier * 150)
+			- Resources: (new tier * 50) EXCEPT castles, which require (new tier * 75)
 		- Rebuilding a node to Tier 1 can be done for free, but still requires the Upgrade a Node action to be taken
-			- Exception: a node that is a Ruin once it has been captured (including a Tier 1 node knocked down by the capture) automatically starts rebuilding to Tier 1 for free, without using an action
+			- Exception: a node that is a Ruin once it has been captured automatically starts rebuilding to Tier 1 for free, without using an action
 				- The rebuild completes during the new owner's next turn
 				- Dwarves do not get this automatic rebuild on land they capture outside their home nodes
 		- Home nodes
@@ -148,7 +148,8 @@ Kingdom Stats:
 			- Send Reinforcements: The nation may shift garrison from one settlement to any friendly settlement, regardless of adjacency
 			- Capture Node: The nation attempts to attack an adjacent node with the intent of occupying it
 				- The attack is performed by allowing the attacker to designate a number of troops in an adjacent garrison to attack the defender's garrison
-				- Successful attacks reduce the node's tier by 1, and changes the owner to the invading kingdom
+				- Successful attacks change the owner to the invading kingdom; the node keeps its tier, though it is devastated (below)
+					- Exception: Dwarves raze what they capture, knocking it down a tier
 				- The strength of each side can be measured with the following formula: 
 					- Defender Power = Garrison × (1 + Final Defense / 20) + Final Defense
 					- Attacker Power = Number of committed troops
@@ -191,7 +192,7 @@ Kingdom Stats:
 				- This value is applied to the node's base defense, rather than its modified one
 				- Fortifying a node also reduces that node's devastation value by .1 per 10 resources spent
 			- Upgrade a Node: Starts the process of upgrading a node one tier
-				- This process takes 1 + (new tier * 2) turns to complete
+				- This process takes 1 + new tier turns to complete (EX: Tier 3 takes 4 turns)
 				- Nodes continue to produce resources equivalent to their original tier, and cannot receive any additional stats EXCEPT garrison
 				- All devastation is cleared from a node on completion of an upgrade
 			- Heroic Conquest: This action is limited to nations whose only node is their capital node

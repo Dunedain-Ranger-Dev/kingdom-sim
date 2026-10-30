@@ -75,12 +75,12 @@
     "res": 50
   },
   "upgrade": {
-    "food": 5,
-    "gold": 300,
-    "res": 100,
-    "castleRes": 150,
+    "food": 2.5,
+    "gold": 150,
+    "res": 50,
+    "castleRes": 75,
     "timeBase": 1,
-    "timePerTier": 2
+    "timePerTier": 1
   },
   "morale": {
     "start": 3,
@@ -93,6 +93,7 @@
     "retreat": 0.25,
     "captureDevastation": 0.5,
     "heroicMult": 4,
+    "captureTierLoss": false,
     "dice": {
       "mode": "scaled",
       "sides": 20,
@@ -230,7 +231,10 @@
         "fortifyAttacked": 2,
         "retake": 1.6,
         "minWin": 0.5,
-        "raidMinWin": 0.6
+        "raidMinWin": 0.6,
+        "developTier": 2,
+        "developExpand": 0.2,
+        "developBonus": 1000
       },
       "orc": {
         "aggr": 2.25,
@@ -265,7 +269,10 @@
         "goldRaidBias": 1.5,
         "upgradeAway": 0,
         "minWin": 0.85,
-        "raidMinWin": 0.9
+        "raidMinWin": 0.9,
+        "developTier": 3,
+        "developExpand": 0.2,
+        "developBonus": 1000
       },
       "elemental": {
         "aggr": 1.5,
@@ -282,7 +289,10 @@
         "fortifyAttacked": 2,
         "capitalReserve": 10,
         "counter": 1,
-        "minWin": 0.65
+        "minWin": 0.65,
+        "developTier": 3,
+        "developExpand": 0.2,
+        "developBonus": 1000
       },
       "hearthbound": {
         "aggr": 1.625,
@@ -301,7 +311,10 @@
         "secureNew": 1,
         "fortifyAttacked": 1.5,
         "minWin": 0.7,
-        "raidMinWin": 0.75
+        "raidMinWin": 0.75,
+        "developTier": 3,
+        "developExpand": 0.2,
+        "developBonus": 1000
       },
       "dwarf": {
         "aggr": 1.625,
@@ -315,7 +328,10 @@
         "targets": "raze",
         "raze": 1,
         "capitalReserve": 10,
-        "minWin": 0.9
+        "minWin": 0.9,
+        "developTier": 3,
+        "developExpand": 0.2,
+        "developBonus": 1000
       },
       "undead": {
         "aggr": 1.875,
@@ -327,7 +343,10 @@
         "raidMargin": 1,
         "armyRatio": 1.2,
         "minArmy": 35,
-        "minWin": 0.35
+        "minWin": 0.35,
+        "developTier": 2,
+        "developExpand": 0.2,
+        "developBonus": 1000
       }
     }
   }

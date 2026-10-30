@@ -417,7 +417,7 @@ final class GameAi {
             if (p.raze != 0 && !kid.equals(t.home)) {
                 return 200 + 400 * t.tier;
             }
-            int afterTier = Math.max(c.freeRebuildOnCapture ? 1 : 0, t.tier - 1);
+            int afterTier = Math.max(c.freeRebuildOnCapture ? 1 : 0, t.tier - (c.combat.captureTierLoss || k.razes ? 1 : 0));
             // Territory is worth something on its own; castles also for defense and (at T3) an extra action.
             double base = (300 + (t.owner != null ? 150 : 0)) * p.landValue + (t.type == NodeType.CASTLE ? 250 + 200 * afterTier : 0);
             double gain = afterTier == 0
@@ -442,6 +442,22 @@ final class GameAi {
             }
         }
         double expandMult = unsecured.isEmpty() ? 1 : 0.35;
+        // Behaviour: methodical factions build their land up to developTier before expanding further.
+        Set<Node> undeveloped = new java.util.HashSet<>();
+        if (p.developTier > 0) {
+            for (Node n : owned) {
+                if (n.type != NodeType.CAPITAL && n.upgrade == null && n.tier < Math.min(p.developTier, n.type.maxTier())
+                        && !(p.raze != 0 && !kid.equals(n.home))) {
+                    Game.Cost cost = g.upgradeCost(n);
+                    if (g.goldToPay(k, cost.food(), cost.gold(), cost.res()) >= 0) {
+                        undeveloped.add(n);
+                    }
+                }
+            }
+            if (!undeveloped.isEmpty()) {
+                expandMult *= p.developExpand;
+            }
+        }
         boolean attacks = p.burst == 0;
         boolean dice = Combat.Dice.on(c.combat.dice);
         // War-only kingdoms (the Orcs) take fights whatever the odds, unless they have a risk appetite to hold them to.
@@ -793,6 +809,9 @@ final class GameAi {
             }
             if (n.type == NodeType.OUTPOST) {
                 gain += maxAdjThreat(n, kid) > 0 ? 150 : 20;
+            }
+            if (undeveloped.contains(n)) {
+                gain += p.developBonus;
             }
             // What it spends: the food and resources it has, and gold for the rest.
             Output spent = new Output(Math.min(cost.food(), k.food), g.goldToPay(k, cost.food(), cost.gold(), cost.res()), Math.min(cost.res(), k.res));
