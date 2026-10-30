@@ -15,7 +15,7 @@ public final class Combat {
 
     /**
      * The dice in a battle: each side's power is multiplied, then added to. {@link #NONE} is the battle as the rules
-     * give it, which the AI's look-ahead uses: it plans for the average fight.
+     * give it.
      */
     public record Dice(int attackRoll, int defenseRoll, double attackMult, double attackAdd, double defenseMult, double defenseAdd) {
         public static final Dice NONE = new Dice(0, 0, 1, 0, 1, 0);
@@ -24,18 +24,82 @@ public final class Combat {
             return attackRoll != 0;
         }
 
-        /** Rolls for a battle by the rules' {@link Rules.Dice}: "scaled", "flat", or anything else for none. */
+        /** Whether the rules roll dice in battles: mode "scaled" or "flat". */
+        public static boolean on(Rules.Dice dice) {
+            return dice != null && ("scaled".equals(dice.mode) || "flat".equals(dice.mode));
+        }
+
+        /** Rolls for a battle by the rules' {@link Rules.Dice}. */
         public static Dice roll(Rules.Dice dice, Rng rng) {
-            if (dice == null || !("scaled".equals(dice.mode) || "flat".equals(dice.mode))) {
+            if (!on(dice)) {
                 return NONE;
             }
             int a = 1 + (int) Math.floor(rng.next() * dice.sides), d = 1 + (int) Math.floor(rng.next() * dice.sides);
+            return of(dice, a, d);
+        }
+
+        /** The dice when the attacker rolls {@code a} and the defender {@code d}. */
+        public static Dice of(Rules.Dice dice, int a, int d) {
             double middle = (dice.sides + 1) / 2.0;
             if ("scaled".equals(dice.mode)) {
                 return new Dice(a, d, 1 + (a - middle) * dice.swing, 0, 1 + (d - middle) * dice.swing, 0);
             }
             return new Dice(a, d, 1, a * dice.flat, 1, d * dice.flat);
         }
+    }
+
+    /**
+     * What a battle can be expected to do over every roll of the dice, for the AI to weigh: the chance the attacker
+     * wins, the troops each side can expect to lose, and the attacker's troops left when it wins. Without dice it's
+     * the one battle the rules give.
+     */
+    public record Odds(double win, double attackerLosses, double defenderLosses, double winSurvivors) {}
+
+    /** The odds of a capture ({@code raid} false) or a raid. */
+    public static Odds odds(Rules rules, boolean raid, int troops, int garrison, double dp, boolean heroic, double strength) {
+        Rules.Dice dice = rules.combat.dice;
+        if (!Dice.on(dice)) {
+            Battle b = raid ? raid(rules, troops, garrison, dp, strength) : capture(rules, troops, garrison, dp, heroic, strength);
+            return new Odds(b.win() ? 1 : 0, b.attackerLosses(), b.defenderLosses(), b.win() ? b.survivors() : 0);
+        }
+        int wins = 0;
+        double attackerLosses = 0, defenderLosses = 0, winSurvivors = 0;
+        for (int a = 1; a <= dice.sides; a++) {
+            for (int d = 1; d <= dice.sides; d++) {
+                Dice roll = Dice.of(dice, a, d);
+                Battle b = raid ? raid(rules, troops, garrison, dp, strength, roll) : capture(rules, troops, garrison, dp, heroic, strength, roll);
+                attackerLosses += b.attackerLosses();
+                defenderLosses += b.defenderLosses();
+                if (b.win()) {
+                    wins++;
+                    winSurvivors += b.survivors();
+                }
+            }
+        }
+        double rolls = dice.sides * dice.sides;
+        return new Odds(wins / rolls, attackerLosses / rolls, defenderLosses / rolls, wins == 0 ? 0 : winSurvivors / wins);
+    }
+
+    /**
+     * How many times the defender's power the attacker's must be to win at least {@code chance} of the time, with
+     * scaled dice: a win needs power × attacker's roll multiplier above defense × defender's, so the answer is the
+     * matching ratio of the two multipliers. Zero for other dice, which don't scale (or none).
+     */
+    public static double marginFor(Rules.Dice dice, double chance) {
+        if (dice == null || !"scaled".equals(dice.mode)) {
+            return 0;
+        }
+        double[] ratios = new double[dice.sides * dice.sides];
+        int i = 0;
+        for (int a = 1; a <= dice.sides; a++) {
+            for (int d = 1; d <= dice.sides; d++) {
+                Dice roll = Dice.of(dice, a, d);
+                ratios[i++] = roll.defenseMult() / roll.attackMult();
+            }
+        }
+        java.util.Arrays.sort(ratios);
+        int k = Math.max(1, Math.min(ratios.length, (int) Math.ceil(chance * ratios.length - 1e-9)));
+        return ratios[k - 1];
     }
 
     /** The town stat multiplier: min(tier, 1) × (1 + 0.5 × (tier − 1)), and nothing for ruins. */

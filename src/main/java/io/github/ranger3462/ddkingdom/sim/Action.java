@@ -19,8 +19,7 @@ public record Action(Type type, String from, String to, String target, int troop
         UPGRADE("upgrade", "Upgrade a node"),
         HEROIC("heroic", "Heroic conquest"),
         REPAIR("repair", "Repair node"),
-        IMPORT_FOOD("import_food", "Import food"),
-        PASS("pass", "Pass");
+        IMPORT_FOOD("import_food", "Import food");
 
         /** As the simulator names it. */
         public final String id;
@@ -49,7 +48,7 @@ public record Action(Type type, String from, String to, String target, int troop
         return new Action(Type.HEROIC, from, null, target, troops, 0, 0, null, 0, null, 0);
     }
 
-    /** {@code resource} is "food", "wealth" or "res". */
+    /** {@code resource} is "food", "gold" or "res". */
     public static Action raid(String from, String target, int troops, String resource) {
         return new Action(Type.RAID, from, null, target, troops, 0, 0, null, 0, resource, 0);
     }

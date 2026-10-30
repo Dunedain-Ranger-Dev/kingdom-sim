@@ -1,12 +1,12 @@
 {
   "name": "Hearthbound continent (ruins start)",
   "kingdoms": [
-    {"food":20,"wealth":1000,"res":200,"id":"hb","name":"Hearthbound Kingdom","color":"#3F6FC4","growth":"normal","ai":"hearthbound","player":true},
-    {"food":20,"wealth":1000,"res":200,"id":"go","name":"Goblins","color":"#7E9A26","growth":"fast","ai":"goblin","goblinRule":true},
-    {"food":20,"wealth":1000,"res":200,"id":"or","name":"Orcs","color":"#B0482F","growth":"normal","ai":"orc","strength":1.25,"upkeepMult":1.5},
-    {"food":20,"wealth":1000,"res":200,"id":"ko","name":"Kobolds","color":"#C99A2E","growth":"slow","ai":"kobold"},
-    {"food":20,"wealth":1000,"res":200,"id":"un","name":"Undead","color":"#7A5FA0","growth":"normal","ai":"undead","raiseDead":0.25},
-    {"food":20,"wealth":1000,"res":200,"id":"el","name":"Elementals","color":"#2A9BA8","growth":"normal","ai":"elemental","homeDefStrength":1.5}
+    {"food":20,"gold":1000,"res":200,"id":"hb","name":"Hearthbound Kingdom","color":"#3F6FC4","growth":"normal","ai":"hearthbound","player":true},
+    {"food":20,"gold":1000,"res":200,"id":"go","name":"Goblins","color":"#7E9A26","growth":"fast","ai":"goblin","goblinRule":true},
+    {"food":20,"gold":1000,"res":200,"id":"or","name":"Orcs","color":"#B0482F","growth":"normal","ai":"orc","strength":1.25,"upkeepMult":1.5},
+    {"food":20,"gold":1000,"res":200,"id":"ko","name":"Kobolds","color":"#C99A2E","growth":"slow","ai":"kobold"},
+    {"food":20,"gold":1000,"res":200,"id":"un","name":"Undead","color":"#7A5FA0","growth":"normal","ai":"undead","raiseDead":0.25},
+    {"food":20,"gold":1000,"res":200,"id":"el","name":"Elementals","color":"#2A9BA8","growth":"normal","ai":"elemental","homeDefStrength":1.5}
   ],
   "nodes": [
     {"id":"ko_cap","name":"Vyrnhallow","type":"capital","tier":5,"owner":"ko","home":"ko","garrison":30,"defense":10,"morale":10,"devastation":0,"x":150,"y":110},

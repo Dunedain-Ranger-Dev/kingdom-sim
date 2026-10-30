@@ -1,7 +1,7 @@
 const path = require('path');
 const dir = path.join(__dirname, 'web');
 const S = require(path.join(dir, 'engine.js'));
-const SC = require(path.join(dir, 'scenario.js'));
+const SC = S.MAPS.four_corners;
 
 // Rule spot checks
 const cfg = S.DEFAULT_CONFIG;
@@ -27,7 +27,7 @@ console.log('dw income', inc, 'upkeep', g.upkeep('dw'));
 
 for (let i = 0; i < 40; i++) g.runRound();
 for (const k of g.kingdoms) {
-  console.log(k.name, 'nodes', g.ownedNodes(k.id).length, 'army', g.army(k.id), 'F/W/R', k.food, k.wealth, k.res, JSON.stringify(k.stats.actions), 'cap', k.stats.capturesWon + '/' + k.stats.capturesTried, 'raids', k.stats.raidsWon + '/' + k.stats.raidsTried, 'short', k.stats.foodShortTurns, k.stats.wealthShortTurns, 'buffs', k.stats.buffs);
+  console.log(k.name, 'nodes', g.ownedNodes(k.id).length, 'army', g.army(k.id), 'F/W/R', k.food, k.gold, k.res, JSON.stringify(k.stats.actions), 'cap', k.stats.capturesWon + '/' + k.stats.capturesTried, 'raids', k.stats.raidsWon + '/' + k.stats.raidsTried, 'short', k.stats.foodShortTurns, k.stats.goldShortTurns, 'buffs', k.stats.buffs);
 }
 console.log(g.log.slice(0, 40).map((l) => `R${l.round} ${l.kid} ${l.text}`).join('\n'));
 console.log('...');

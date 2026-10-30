@@ -37,28 +37,28 @@ public final class Game {
         public final String kid;
         public Phase phase = Phase.PRODUCTION;
         public int actionsLeft, actionsTotal, generalLeft, extraLeft;
-        /** Wealth produced this turn, which the growth buff's price is based on. */
-        public final double grossWealth;
+        /** Gold produced this turn, which the growth buff's price is based on. */
+        public final double grossGold;
 
-        Turn(String kid, double grossWealth) {
+        Turn(String kid, double grossGold) {
             this.kid = kid;
-            this.grossWealth = grossWealth;
+            this.grossGold = grossGold;
         }
     }
 
     public record LogEntry(int round, String kid, String kind, String text) {}
 
-    public record Output(double food, double wealth, double prod) {}
+    public record Output(double food, double gold, double prod) {}
 
-    public record Upkeep(int batches, double food, double wealth) {}
+    public record Upkeep(int batches, double food, double gold) {}
 
-    public record Cost(double food, double wealth, double res, int newTier, int turns) {}
+    public record Cost(double food, double gold, double res, int newTier, int turns) {}
 
-    /** Raid loot: {@code amount} of {@code key} ("food", "wealth" or "res"; null for nothing to steal). */
+    /** Raid loot: {@code amount} of {@code key} ("food", "gold" or "res"; null for nothing to steal). */
     public record Steal(double amount, double cap, String key, double stock) {}
 
     /** One kingdom at the end of a round. */
-    public record Row(double food, double wealth, double res, int army, int nodes, double foodNet, double wealthNet, double resNet) {}
+    public record Row(double food, double gold, double res, int army, int nodes, double foodNet, double goldNet, double resNet) {}
 
     public record Snapshot(int round, Map<String, Row> kingdoms) {}
 
@@ -162,8 +162,8 @@ public final class Game {
         for (Kingdom k : kingdoms) {
             Output inc = income(k.id, false);
             Upkeep up = upkeep(k.id);
-            row.put(k.id, new Row(k.food, k.wealth, k.res, army(k.id), ownedNodes(k.id).size(), r2(inc.food() - up.food()),
-                    r2(inc.wealth() - up.wealth()), r2(inc.prod())));
+            row.put(k.id, new Row(k.food, k.gold, k.res, army(k.id), ownedNodes(k.id).size(), r2(inc.food() - up.food()),
+                    r2(inc.gold() - up.gold()), r2(inc.prod())));
         }
         history.add(new Snapshot(round, row));
     }
@@ -201,7 +201,7 @@ public final class Game {
         return switch (n.type) {
             case CAPITAL, TOWN -> {
                 double m = Combat.tierMult(n.type == NodeType.CAPITAL ? c.capitalTier : tier);
-                yield new Output(c.town.food * m, c.town.wealth * m * c.town.wealthMult, c.town.prod * m);
+                yield new Output(c.town.food * m, c.town.gold * m * c.town.goldMult, c.town.prod * m);
             }
             case CASTLE -> new Output(castleTier(tier).food, 0, 0);
             case FOOD -> new Output(at(c.foodNode, tier), 0, 0);
@@ -214,7 +214,7 @@ public final class Game {
     public Output output(Node n) {
         Output b = baseOutput(n);
         double f = 1 - n.devastation;
-        return new Output(b.food() > 0 ? b.food() * f : b.food(), b.wealth() > 0 ? b.wealth() * f : b.wealth(),
+        return new Output(b.food() > 0 ? b.food() * f : b.food(), b.gold() > 0 ? b.gold() * f : b.gold(),
                 b.prod() > 0 ? b.prod() * f : b.prod());
     }
 
@@ -323,27 +323,27 @@ public final class Game {
 
     /** Node output, plus food arriving from import contracts unless {@code nodesOnly}. */
     public Output income(String kid, boolean nodesOnly) {
-        double food = 0, wealth = 0, prod = 0;
+        double food = 0, gold = 0, prod = 0;
         for (Node n : nodes) {
             if (n.ownedBy(kid)) {
                 Output o = output(n);
                 food += o.food();
-                wealth += o.wealth();
+                gold += o.gold();
                 prod += o.prod();
             }
         }
         if (!nodesOnly) {
             food += K.get(kid).importedFood();
         }
-        return new Output(food, wealth, prod);
+        return new Output(food, gold, prod);
     }
 
-    /** Every 10 soldiers (rounded up) cost 1 food and 100 wealth, times the kingdom's upkeep multiplier. */
+    /** Every 10 soldiers (rounded up) cost 1 food and 100 gold, times the kingdom's upkeep multiplier. */
     public Upkeep upkeepFor(int army, String kid) {
         int batches = (int) Math.ceil(army / (double) rules.hire.batchSize);
         Kingdom k = kid == null ? null : K.get(kid);
         double m = k == null || k.upkeepMult == 0 ? 1 : k.upkeepMult;
-        return new Upkeep(batches, Math.ceil(batches * rules.upkeep.food * m), Math.ceil(batches * rules.upkeep.wealth * m));
+        return new Upkeep(batches, Math.ceil(batches * rules.upkeep.food * m), Math.ceil(batches * rules.upkeep.gold * m));
     }
 
     public Upkeep upkeep(String kid) {
@@ -436,19 +436,19 @@ public final class Game {
         return out;
     }
 
-    /** The next tier's cost: new tier × 5 food, × 300 wealth, × 100 resources (150 for castles); rebuilding ruins is free. */
+    /** The next tier's cost: new tier × 5 food, × 300 gold, × 100 resources (150 for castles); rebuilding ruins is free. */
     public Cost upgradeCost(Node n) {
         int next = n.tier + 1;
         Rules.Upgrade u = rules.upgrade;
         if (n.tier == 0) {
             return new Cost(0, 0, 0, 1, u.timeBase + u.timePerTier);
         }
-        return new Cost(next * u.food, next * u.wealth, next * (n.type == NodeType.CASTLE ? u.castleRes : u.res), next, u.timeBase + next * u.timePerTier);
+        return new Cost(next * u.food, next * u.gold, next * (n.type == NodeType.CASTLE ? u.castleRes : u.res), next, u.timeBase + next * u.timePerTier);
     }
 
-    /** The growth buff's price this turn: 2 turns of gross wealth income. */
+    /** The growth buff's price this turn: 2 turns of gross gold income. */
     public double buffCost() {
-        return cur == null ? 0 : rules.buff.costTurns * cur.grossWealth;
+        return cur == null ? 0 : rules.buff.costTurns * cur.grossGold;
     }
 
     // ---- Turn flow ----
@@ -466,13 +466,13 @@ public final class Game {
         }
         Output inc = income(kid, false);
         k.food = r2(k.food + inc.food());
-        k.wealth = r2(k.wealth + inc.wealth());
+        k.gold = r2(k.gold + inc.gold());
         k.res = r2(k.res + inc.prod());
         k.stats.turns++;
-        cur = new Turn(kid, inc.wealth());
+        cur = new Turn(kid, inc.gold());
         if (!quiet) {
-            emit(kid, "phase", "Production: +" + num(r2(inc.food())) + " food, +" + num(r2(inc.wealth())) + " wealth, +" + num(r2(inc.prod()))
-                    + " resources → stockpile " + num(k.food) + " / " + num(k.wealth) + " / " + num(k.res));
+            emit(kid, "phase", "Production: +" + num(r2(inc.food())) + " food, +" + num(r2(inc.gold())) + " gold, +" + num(r2(inc.prod()))
+                    + " resources → stockpile " + num(k.food) + " / " + num(k.gold) + " / " + num(k.res));
         }
         return cur;
     }
@@ -484,14 +484,14 @@ public final class Game {
         }
         Kingdom k = K.get(cur.kid);
         double cost = buffCost();
-        if (k.wealth < cost) {
-            throw new RuleException("Growth buff costs " + num(cost) + " wealth (2 turns of gross wealth income); only " + num(k.wealth) + " available.");
+        if (k.gold < cost) {
+            throw new RuleException("Growth buff costs " + num(cost) + " gold (2 turns of gross gold income); only " + num(k.gold) + " available.");
         }
-        k.wealth = r2(k.wealth - cost);
+        k.gold = r2(k.gold - cost);
         k.buffTurns = rules.buff.duration;
         k.stats.buffs++;
         if (!quiet) {
-            emit(cur.kid, "buff", "Bought growth buff for " + num(cost) + " wealth: growth ×" + num(rules.buff.mult) + " for " + rules.buff.duration
+            emit(cur.kid, "buff", "Bought growth buff for " + num(cost) + " gold: growth ×" + num(rules.buff.mult) + " for " + rules.buff.duration
                     + " turns (now ×" + num(growthMult(cur.kid)) + ").");
         }
     }
@@ -503,10 +503,10 @@ public final class Game {
         int army = army(kid);
         Upkeep up = upkeepFor(army, kid);
         k.food = r2(k.food - up.food());
-        k.wealth = r2(k.wealth - up.wealth());
-        // The optional stockpile tax: a share of wealth above the tax-free amount is lost each upkeep (0 = off).
-        if (rules.wealthTax.rate > 0 && k.wealth > rules.wealthTax.free) {
-            k.wealth = r2(k.wealth - (k.wealth - rules.wealthTax.free) * rules.wealthTax.rate);
+        k.gold = r2(k.gold - up.gold());
+        // The optional stockpile tax: a share of gold above the tax-free amount is lost each upkeep (0 = off).
+        if (rules.goldTax.rate > 0 && k.gold > rules.goldTax.free) {
+            k.gold = r2(k.gold - (k.gold - rules.goldTax.free) * rules.goldTax.rate);
         }
         List<String> kinds = new ArrayList<>();
         if (k.food < 0) {
@@ -514,13 +514,13 @@ public final class Game {
             k.stats.foodShortTurns++;
             k.food = 0;
         }
-        if (k.wealth < 0) {
-            kinds.add("wealth");
-            k.stats.wealthShortTurns++;
-            k.wealth = 0;
+        if (k.gold < 0) {
+            kinds.add("gold");
+            k.stats.goldShortTurns++;
+            k.gold = 0;
         }
         if (!quiet) {
-            emit(kid, "phase", "Upkeep for " + army + " soldiers (" + up.batches() + " batches): −" + num(up.food()) + " food, −" + num(up.wealth()) + " wealth");
+            emit(kid, "phase", "Upkeep for " + army + " soldiers (" + up.batches() + " batches): −" + num(up.food()) + " food, −" + num(up.gold()) + " gold");
         }
         if (!kinds.isEmpty()) {
             Node largest = capital(kid);
@@ -613,7 +613,7 @@ public final class Game {
             try {
                 act(a);
             } catch (RuleException e) {
-                act(Action.of(Action.Type.PRODUCE));
+                act(fallback(kid));
             }
         }
         if (cur != null) {
@@ -649,11 +649,6 @@ public final class Game {
             throw new RuleException("Only " + (rules.nonCombatActions.economyOnly ? "economy" : "non-combat") + " actions are left this turn.");
         }
         switch (a.type()) {
-            case PASS -> {
-                if (!quiet) {
-                    emit(kid, "action", "No attack available: the action is spent idle.");
-                }
-            }
             case REINFORCE_BORDER -> reinforceBorder(kid);
             case SEND -> send(kid, a);
             case CAPTURE -> capture(kid, a, false);
@@ -678,11 +673,15 @@ public final class Game {
         }
     }
 
-    /** Ends the current turn's action phase early. */
-    public void skipActions() {
-        if (cur != null && cur.phase == Phase.ACTIONS) {
-            endTurn();
+    /**
+     * The action a kingdom takes when nothing better is allowed: Produce Resources, or if that's on its cooldown,
+     * Reinforce Border (which is always allowed, even if it does nothing). Every action is used.
+     */
+    Action fallback(String kid) {
+        if (canProduce(kid)) {
+            return Action.of(Action.Type.PRODUCE);
         }
+        return Action.of(Action.Type.REINFORCE_BORDER);
     }
 
     public boolean fitsExtraSlot(Action.Type type) {
@@ -976,7 +975,7 @@ public final class Game {
         }
     }
 
-    /** What a raid by {@code survivors} takes: ½ food, 10 wealth or 1 resource each, up to the defender's stockpile. */
+    /** What a raid by {@code survivors} takes: ½ food, 10 gold or 1 resource each, up to the defender's stockpile. */
     public Steal raidSteal(Node target, String resource, int survivors) {
         Rules.Raid c = rules.raid;
         if (target.type == NodeType.OUTPOST || target.owner == null) {
@@ -989,15 +988,15 @@ public final class Game {
                 per = c.foodPer;
                 out = base.food();
             }
-            case "wealth" -> {
-                per = c.wealthPer;
-                out = base.wealth();
+            case "gold" -> {
+                per = c.goldPer;
+                out = base.gold();
             }
             case "res" -> {
                 per = c.prodPer;
                 out = base.prod();
             }
-            default -> throw new RuleException("Pick food, wealth or resources to raid for.");
+            default -> throw new RuleException("Pick food, gold or resources to raid for.");
         }
         double cap = c.maxTurns > 0 ? Math.max(0, out * c.maxTurns) : Double.POSITIVE_INFINITY;
         Kingdom owner = K.get(target.owner);
@@ -1009,7 +1008,7 @@ public final class Game {
     static double stockpile(Kingdom k, String key) {
         return switch (key) {
             case "food" -> k.food;
-            case "wealth" -> k.wealth;
+            case "gold" -> k.gold;
             default -> k.res;
         };
     }
@@ -1017,7 +1016,7 @@ public final class Game {
     private static void addStockpile(Kingdom k, String key, double amount) {
         switch (key) {
             case "food" -> k.food = r2(k.food + amount);
-            case "wealth" -> k.wealth = r2(k.wealth + amount);
+            case "gold" -> k.gold = r2(k.gold + amount);
             default -> k.res = r2(k.res + amount);
         }
     }
@@ -1059,7 +1058,7 @@ public final class Game {
                 addStockpile(k, s.key(), s.amount());
                 switch (s.key()) {
                     case "food" -> k.stats.stolenFood += s.amount();
-                    case "wealth" -> k.stats.stolenWealth += s.amount();
+                    case "gold" -> k.stats.stolenGold += s.amount();
                     default -> k.stats.stolenRes += s.amount();
                 }
             }
@@ -1096,33 +1095,44 @@ public final class Game {
         if (!connectedToCapital(kid, node.id)) {
             throw new RuleException(node.name + " has no friendly path to the capital; troops are cut off.");
         }
-        double w = b * c.wealth, rs = b * c.res;
-        if (k.wealth < w || k.res < rs) {
-            throw new RuleException("Hiring " + b + " batch(es) costs " + num(w) + " wealth and " + num(rs) + " resources.");
+        double w = b * c.gold, rs = b * c.res;
+        if (k.gold < w || k.res < rs) {
+            throw new RuleException("Hiring " + b + " batch(es) costs " + num(w) + " gold and " + num(rs) + " resources.");
         }
         double gm = growthMult(kid);
         int soldiers = (int) Math.floor(b * c.batchSize * gm);
-        k.wealth = r2(k.wealth - w);
+        k.gold = r2(k.gold - w);
         k.res = r2(k.res - rs);
         node.garrison += soldiers;
         k.stats.hired += soldiers;
         if (!quiet) {
-            emit(kid, "action", "Hire: " + b + " batch(es) for " + num(w) + " wealth + " + num(rs) + " resources × growth " + num(gm) + " = " + soldiers
+            emit(kid, "action", "Hire: " + b + " batch(es) for " + num(w) + " gold + " + num(rs) + " resources × growth " + num(gm) + " = " + soldiers
                     + " soldiers at " + node.name + ".");
         }
+    }
+
+    /** Whether Produce Resources is off its cooldown for {@code kid}. */
+    public boolean canProduce(String kid) {
+        Integer last = K.get(kid).lastProduced;
+        return rules.produce.cooldown <= 0 || last == null || round - last >= rules.produce.cooldown;
     }
 
     /** Pays a share of the nodes' per-turn output; imported food doesn't count. */
     private void produce(String kid) {
         Kingdom k = K.get(kid);
+        if (!canProduce(kid)) {
+            throw new RuleException("Produce Resources can be used once every " + rules.produce.cooldown + " turns; next on turn "
+                    + (k.lastProduced + rules.produce.cooldown) + ".");
+        }
+        k.lastProduced = round;
         Output inc = income(kid, true);
         double m = rules.produce.payout;
-        double f = Math.floor(Math.max(0, inc.food()) * m), w = Math.floor(inc.wealth() * m), p = Math.floor(inc.prod() * m);
+        double f = Math.floor(Math.max(0, inc.food()) * m), w = Math.floor(inc.gold() * m), p = Math.floor(inc.prod() * m);
         k.food = r2(k.food + f);
-        k.wealth = r2(k.wealth + w);
+        k.gold = r2(k.gold + w);
         k.res = r2(k.res + p);
         if (!quiet) {
-            emit(kid, "action", "Produce resources (" + num(m * 100) + "% of node output): +" + num(f) + " food, +" + num(w) + " wealth, +" + num(p) + " resources.");
+            emit(kid, "action", "Produce resources (" + num(m * 100) + "% of node output): +" + num(f) + " food, +" + num(w) + " gold, +" + num(p) + " resources.");
         }
     }
 
@@ -1137,15 +1147,15 @@ public final class Game {
         if (food > c.maxPerAction) {
             throw new RuleException("At most " + c.maxPerAction + " food per turn per contract.");
         }
-        double cost = food * c.duration * c.wealthPerFood;
-        if (k.wealth < cost) {
-            throw new RuleException("Importing " + food + " food per turn for " + c.duration + " turns costs " + num(cost) + " wealth.");
+        double cost = food * c.duration * c.goldPerFood;
+        if (k.gold < cost) {
+            throw new RuleException("Importing " + food + " food per turn for " + c.duration + " turns costs " + num(cost) + " gold.");
         }
-        k.wealth = r2(k.wealth - cost);
+        k.gold = r2(k.gold - cost);
         k.imports.add(new Kingdom.Contract(food, c.duration));
         k.stats.imported += food * c.duration;
         if (!quiet) {
-            emit(kid, "action", "Import food: " + num(cost) + " wealth for +" + food + " food per turn over the next " + c.duration + " turns.");
+            emit(kid, "action", "Import food: " + num(cost) + " gold for +" + food + " food per turn over the next " + c.duration + " turns.");
         }
     }
 
@@ -1187,17 +1197,17 @@ public final class Game {
             throw new RuleException(n.name + " is already at max tier.");
         }
         Cost cost = upgradeCost(n);
-        if (k.food < cost.food() || k.wealth < cost.wealth() || k.res < cost.res()) {
-            throw new RuleException("Upgrading to T" + cost.newTier() + " costs " + num(cost.food()) + " food, " + num(cost.wealth()) + " wealth, "
+        if (k.food < cost.food() || k.gold < cost.gold() || k.res < cost.res()) {
+            throw new RuleException("Upgrading to T" + cost.newTier() + " costs " + num(cost.food()) + " food, " + num(cost.gold()) + " gold, "
                     + num(cost.res()) + " resources.");
         }
         k.food = r2(k.food - cost.food());
-        k.wealth = r2(k.wealth - cost.wealth());
+        k.gold = r2(k.gold - cost.gold());
         k.res = r2(k.res - cost.res());
         n.upgrade = new Node.Upgrade(cost.newTier(), cost.turns(), false);
         if (!quiet) {
             emit(kid, "action", (n.tier == 0 ? "Rebuild" : "Upgrade") + " " + n.name + " to T" + cost.newTier() + " (" + n.type.tierName(cost.newTier()) + "): "
-                    + num(cost.food()) + " food, " + num(cost.wealth()) + " wealth, " + num(cost.res()) + " resources, " + cost.turns() + " turns.");
+                    + num(cost.food()) + " food, " + num(cost.gold()) + " gold, " + num(cost.res()) + " resources, " + cost.turns() + " turns.");
         }
     }
 

@@ -17,8 +17,7 @@ import com.google.gson.JsonParser;
  *   --seed 1                first seed
  *   --set combat.retreat=0.3    change a rule (any number of times; the value is JSON)
  *   --fingerprint           print each game's end state instead, to check against the browser simulator
- *                           (tools/simulator/parity.js), with the rules added since the port turned off:
- *                           --set combat.dice.mode="none"
+ *                           (tools/simulator/parity.js)
  * </pre>
  */
 public final class SimMain {
@@ -66,7 +65,7 @@ public final class SimMain {
     public static String fingerprint(Game game) {
         StringBuilder out = new StringBuilder();
         for (Kingdom k : game.kingdoms) {
-            out.append(k.id).append(':').append(Math.round(k.food * 100)).append(',').append(Math.round(k.wealth * 100)).append(',')
+            out.append(k.id).append(':').append(Math.round(k.food * 100)).append(',').append(Math.round(k.gold * 100)).append(',')
                     .append(Math.round(k.res * 100)).append(',').append(game.army(k.id)).append(' ');
         }
         for (Node n : game.nodes) {
@@ -78,7 +77,7 @@ public final class SimMain {
 
     private static void report(SimMap map, Rules rules, int seed, int games, int rounds) {
         long start = System.currentTimeMillis();
-        Map<String, double[]> per = new LinkedHashMap<>(); // nodes, army, wealth, leads
+        Map<String, double[]> per = new LinkedHashMap<>(); // nodes, army, gold, leads, captures, raids
         Map<String, Integer> actions = new LinkedHashMap<>();
         double ruins = 0, unowned = 0, captures = 0, raids = 0, attacks = 0, attacksWon = 0, upsets = 0;
         int totalActions = 0;
@@ -88,10 +87,12 @@ public final class SimMain {
             int most = -1;
             for (Kingdom k : game.kingdoms) {
                 int nodes = game.ownedNodes(k.id).size();
-                double[] row = per.computeIfAbsent(k.id, id -> new double[4]);
+                double[] row = per.computeIfAbsent(k.id, id -> new double[6]);
                 row[0] += nodes;
                 row[1] += game.army(k.id);
-                row[2] += k.wealth;
+                row[2] += k.gold;
+                row[4] += k.stats.capturesWon;
+                row[5] += k.stats.raidsWon;
                 if (nodes > most) {
                     most = nodes;
                     leader = k.id;
@@ -123,10 +124,11 @@ public final class SimMain {
                 captures / games, raids / games);
         System.out.printf(Locale.ROOT, "  attacks won %.0f%% | turned by the dice %.1f%% of attacks%n", 100 * attacksWon / Math.max(1, attacks),
                 100 * upsets / Math.max(1, attacks));
-        System.out.printf(Locale.ROOT, "  %-6s %7s %7s %8s %7s%n", "", "nodes", "army", "wealth", "leads");
+        System.out.printf(Locale.ROOT, "  %-6s %7s %7s %8s %9s %6s %7s%n", "", "nodes", "army", "gold", "captures", "raids", "leads");
         for (Map.Entry<String, double[]> e : per.entrySet()) {
             double[] r = e.getValue();
-            System.out.printf(Locale.ROOT, "  %-6s %7.1f %7.0f %8.0f %6.0f%%%n", e.getKey(), r[0] / games, r[1] / games, r[2] / games, 100 * r[3] / games);
+            System.out.printf(Locale.ROOT, "  %-6s %7.1f %7.0f %8.0f %9.1f %6.1f %6.0f%%%n", e.getKey(), r[0] / games, r[1] / games, r[2] / games, r[4] / games,
+                    r[5] / games, 100 * r[3] / games);
         }
         StringBuilder mix = new StringBuilder("  actions:");
         int total = totalActions;

@@ -13,8 +13,8 @@ public final class Personality {
     static final String DEFAULTS = """
             {"aggr": 1, "raid": 0.8, "def": 1, "econ": 1, "mil": 1, "margin": 1.25, "raidMargin": 0, "armyRatio": 1, "minArmy": 30,
              "targets": "any", "reserveMult": 1, "capitalReserve": 0, "retake": 1, "secureNew": 0, "fortifyAttacked": 1,
-             "homeRadius": 0, "homeBias": 1, "upgradeAway": 1, "wealthRaidBias": 1, "burst": 0, "burstRatio": 2, "rebalance": 0,
-             "leaveBehind": 0, "landValue": 1, "counter": 0, "warOnly": 0, "warHire": 0, "raze": 0}""";
+             "homeRadius": 0, "homeBias": 1, "upgradeAway": 1, "goldRaidBias": 1, "burst": 0, "burstRatio": 2, "rebalance": 0,
+             "leaveBehind": 0, "landValue": 1, "counter": 0, "warOnly": 0, "warHire": 0, "raze": 0, "minWin": 0, "raidMinWin": 0, "guardMult": 1}""";
 
     /** Weights on attacking, raiding, defending, the economy and the military. */
     public double aggr, raid, def, econ, mil;
@@ -39,7 +39,7 @@ public final class Personality {
     public double homeRadius, homeBias;
     /** Whether it upgrades land outside its home area past Tier 1 (0 or 1). */
     public double upgradeAway;
-    public double wealthRaidBias;
+    public double goldRaidBias;
     /** The old Elemental burst cycle (0 or 1): mass in the capital, strike player land at {@link #burstRatio}, fall back. */
     public double burst, burstRatio;
     /** Spreads troops to where they're needed (0 or 1), leaving at least {@link #leaveBehind} in uncapped nodes. */
@@ -52,6 +52,14 @@ public final class Personality {
     public double warOnly, warHire;
     /** Razes: captures to knock tiers down, never rebuilds what it takes, and brings the troops home (0 or 1). */
     public double raze;
+    /**
+     * With scaled dice in battles, the lowest chance of winning it attacks at: its risk appetite. It replaces
+     * {@link #margin} (and {@link #raidMargin} for raids, from {@code raidMinWin}, or {@code minWin} if that's 0) with
+     * the margin that wins that often. 0 keeps the margins as they are.
+     */
+    public double minWin, raidMinWin;
+    /** Multiplier on the guard the AI leaves on its frontier nodes (Rules.Guard): the Orcs leave theirs "relatively undefended". */
+    public double guardMult;
 
     /** The personality named {@code name}, or "balanced" if there's none by that name. */
     public static Personality of(Rules rules, String name) {
@@ -59,6 +67,16 @@ public final class Personality {
         if (chosen == null) {
             chosen = rules.ai.personalities.get("balanced");
         }
-        return Rules.GSON.fromJson(Rules.merge(JsonParser.parseString(DEFAULTS), chosen), Personality.class);
+        Personality p = Rules.GSON.fromJson(Rules.merge(JsonParser.parseString(DEFAULTS), chosen), Personality.class);
+        double margin = p.minWin > 0 ? Combat.marginFor(rules.combat.dice, p.minWin) : 0;
+        if (margin > 0) {
+            p.margin = margin;
+        }
+        double raidChance = p.raidMinWin > 0 ? p.raidMinWin : p.minWin;
+        double raidMargin = raidChance > 0 ? Combat.marginFor(rules.combat.dice, raidChance) : 0;
+        if (raidMargin > 0) {
+            p.raidMargin = raidMargin;
+        }
+        return p;
     }
 }

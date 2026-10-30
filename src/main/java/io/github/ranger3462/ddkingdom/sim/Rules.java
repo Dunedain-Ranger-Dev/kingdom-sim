@@ -50,7 +50,7 @@ public final class Rules {
     public Fortify fortify;
     public ReinforceBorder reinforceBorder;
     public double repairCost;
-    public WealthTax wealthTax;
+    public GoldTax goldTax;
     /** A node that is a ruin once captured starts a free rebuild to Tier 1 that costs no action and finishes next turn. */
     public boolean freeRebuildOnCapture;
     public Produce produce;
@@ -64,7 +64,7 @@ public final class Rules {
     public Ai ai;
 
     public static final class Town {
-        public double food, wealth, prod, wealthMult;
+        public double food, gold, prod, goldMult;
         public int defPerTier;
     }
 
@@ -83,7 +83,7 @@ public final class Rules {
     }
 
     public static final class Upkeep {
-        public double food, wealth;
+        public double food, gold;
     }
 
     public static final class Buff {
@@ -93,11 +93,11 @@ public final class Rules {
 
     public static final class Hire {
         public int batchSize, maxBatches;
-        public double wealth, res;
+        public double gold, res;
     }
 
     public static final class Upgrade {
-        public double food, wealth, res, castleRes;
+        public double food, gold, res, castleRes;
         public int timeBase, timePerTier;
     }
 
@@ -123,7 +123,7 @@ public final class Rules {
     }
 
     public static final class Raid {
-        public double foodPer, wealthPer, prodPer, maxTurns, garrisonDmg, devPer10, devMax;
+        public double foodPer, goldPer, prodPer, maxTurns, garrisonDmg, devPer10, devMax;
     }
 
     public static final class Fortify {
@@ -137,17 +137,19 @@ public final class Rules {
         public boolean neutralIsHostile;
     }
 
-    public static final class WealthTax {
+    public static final class GoldTax {
         public double rate, free;
     }
 
     public static final class Produce {
         public double payout;
+        /** Turns before a kingdom can Produce Resources again: used on turn 1, it's next allowed on turn 1 + cooldown (0: any time). */
+        public int cooldown;
     }
 
     public static final class ImportFood {
         public boolean enabled;
-        public double wealthPerFood;
+        public double goldPerFood;
         public int maxPerAction, duration;
     }
 
@@ -161,6 +163,19 @@ public final class Rules {
         public double noise, horizon, foodValue, resValue, soldierValue;
         /** By name; a kingdom's {@code ai} picks one, and missing fields fall back to {@link Personality#DEFAULTS}. */
         public Map<String, JsonObject> personalities = new LinkedHashMap<>();
+        /** What the AI keeps behind on the nodes it holds (null: nothing beyond its reserve). */
+        public Guard guard;
+    }
+
+    /**
+     * Troops the AI leaves on its nodes when it attacks or moves troops out. A node next to land it doesn't hold keeps
+     * at least {@code min} (times its personality's {@code guardMult}), and the threat it keeps a reserve against counts
+     * enemy garrisons up to {@code reach} links away, at {@code reachShare} of their size past the first link.
+     */
+    public static final class Guard {
+        public boolean enabled;
+        public int min, reach;
+        public double reachShare;
     }
 
     /** The default rules. */

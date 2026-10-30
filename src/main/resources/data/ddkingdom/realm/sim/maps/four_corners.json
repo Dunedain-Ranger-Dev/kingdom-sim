@@ -1,10 +1,10 @@
 {
   "name": "Four Corners",
   "kingdoms": [
-    {"id":"dw","name":"Ironhold Dwarves","color":"#B9772E","growth":"normal","ai":"balanced","food":20,"wealth":1000,"res":200},
-    {"id":"el","name":"Sylvan Court","color":"#2C8C8A","growth":"slow","ai":"defensive","food":20,"wealth":1000,"res":200},
-    {"id":"hu","name":"Kingdom of Aster","color":"#4169C8","growth":"normal","ai":"economic","food":20,"wealth":1000,"res":200},
-    {"id":"go","name":"Goblin Warrens","color":"#7E9A26","growth":"fast","ai":"aggressive","goblinRule":true,"food":20,"wealth":1000,"res":200}
+    {"id":"dw","name":"Ironhold Dwarves","color":"#B9772E","growth":"normal","ai":"balanced","food":20,"gold":1000,"res":200},
+    {"id":"el","name":"Sylvan Court","color":"#2C8C8A","growth":"slow","ai":"defensive","food":20,"gold":1000,"res":200},
+    {"id":"hu","name":"Kingdom of Aster","color":"#4169C8","growth":"normal","ai":"economic","food":20,"gold":1000,"res":200},
+    {"id":"go","name":"Goblin Warrens","color":"#7E9A26","growth":"fast","ai":"aggressive","goblinRule":true,"food":20,"gold":1000,"res":200}
   ],
   "nodes": [
     {"id":"dw_cap","name":"Karak Ostrum","type":"capital","tier":5,"owner":"dw","garrison":30,"defense":10,"morale":10,"devastation":0,"x":110,"y":110},

@@ -14,7 +14,7 @@ public final class Kingdom {
     public final List<String> foes;
     public final int counterPatience;
 
-    public double food, wealth, res;
+    public double food, gold, res;
     /** Turns of the growth buff left. */
     public int buffTurns;
     public final List<Contract> imports = new ArrayList<>();
@@ -27,6 +27,8 @@ public final class Kingdom {
     /** The burst cycle: "gather" or "attack". */
     public String mode = "gather";
     public int cooldownUntil;
+    /** The round it last used Produce Resources (null: never), for its cooldown. */
+    public Integer lastProduced;
     public final Stats stats = new Stats();
 
     /** A food import: {@code food} a turn for {@code turnsLeft} more turns. */
@@ -46,10 +48,10 @@ public final class Kingdom {
     public static final class Stats {
         public final Map<String, Integer> actions = new LinkedHashMap<>();
         public int capturesTried, capturesWon, raidsTried, raidsWon, hired, battleLosses, kills, shortageLosses, foodShortTurns,
-                wealthShortTurns, buffs, nodesGained, nodesLost, turns, counters, raised, imported;
+                goldShortTurns, buffs, nodesGained, nodesLost, turns, counters, raised, imported;
         /** Attacks the dice turned: won that would have been lost without them, or lost that would have been won. */
         public int upsets;
-        public double stolenFood, stolenWealth, stolenRes;
+        public double stolenFood, stolenGold, stolenRes;
     }
 
     Kingdom(SimMap.KingdomSetup s) {
@@ -69,7 +71,7 @@ public final class Kingdom {
         foes = List.copyOf(s.foes);
         counterPatience = s.counterPatience;
         food = s.food;
-        wealth = s.wealth;
+        gold = s.gold;
         res = s.res;
     }
 

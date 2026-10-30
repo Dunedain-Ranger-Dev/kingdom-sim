@@ -1,7 +1,7 @@
 import json, os
 HERE = os.path.dirname(os.path.abspath(__file__))
 from PIL import Image, ImageDraw, ImageFont
-m=json.load(open(os.path.join(HERE, 'large.json'),encoding='utf-8'))
+m=json.load(open(os.path.join(HERE, '..', '..', '..', 'src', 'main', 'resources', 'data', 'ddkingdom', 'realm', 'sim', 'maps', 'large_ruins.json'),encoding='utf-8'))
 col={k['id']:k['color'] for k in m['kingdoms']}
 xs=[n['x'] for n in m['nodes']]; ys=[n['y'] for n in m['nodes']]
 x0,y0=min(xs)-80,min(ys)-60; W=max(xs)-x0+130; H=max(ys)-y0+60

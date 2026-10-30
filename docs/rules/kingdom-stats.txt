@@ -8,21 +8,21 @@ Kingdom Stats:
 				- Exception is Goblins, who will briefly go negative if it allows them to capture nodes
 			- If a nation's food stockpile drops below zero, the nation's largest garrison is reduced by 10 per turn until there is no longer negative income
 				- A nation is considered in negative income if the amount of food in their stockpile would be reduced to below zero during the upkeep phase
-				- This reduction stacks additively with a wealth shortage
-		- Wealth
+				- This reduction stacks additively with a gold shortage
+		- Gold
 			- Indicator of how much money a faction has, used to upgrade nodes and hire soldiers as well as maintain their armies
-			- If a nation's wealth stockpile drops below zero, the nation's largest garrison is reduced by 10 per turn until there is no longer negative income
-				- A nation is considered in negative income if the amount of wealth in their stockpile would be reduced to below zero during the upkeep phase
+			- If a nation's gold stockpile drops below zero, the nation's largest garrison is reduced by 10 per turn until there is no longer negative income
+				- A nation is considered in negative income if the amount of gold in their stockpile would be reduced to below zero during the upkeep phase
 				- This reduction stacks additively with a food shortage
 		- Resources
 			- Resources represent things like wood, iron, dirt, stone, etc.
 			- Resources can be spent to increase Defense at individual nodes, as well as used in army recruitment (but not maintenance)
 		- Army
 			- Represents how many troops are under the kingdom's control
-			- Army can be increased by spending wealth and resources, but drain a kingdom's food
-			- Every 10 soldiers reduce the overall Food value by 1, and wealth value by 100 (representing meals and paychecks)
-				- This rounds up, so if a kingdom had 5 soldiers those soldiers would still cost 1 food and 100 wealth during upkeep
-				- Orcs pay 1.5x upkeep (1.5 food and 150 wealth per 10 soldiers, rounded up), to balance their strength bonus
+			- Army can be increased by spending gold and resources, but drain a kingdom's food
+			- Every 10 soldiers reduce the overall Food value by 1, and gold value by 100 (representing meals and paychecks)
+				- This rounds up, so if a kingdom had 5 soldiers those soldiers would still cost 1 food and 100 gold during upkeep
+				- Orcs pay 1.5x upkeep (1.5 food and 150 gold per 10 soldiers, rounded up), to balance their strength bonus
 			- Soldiers are recruited in batches of 10
 			- Troop strength
 				- Orc troops count as 1.25x their number, both when attacking and when defending
@@ -37,9 +37,9 @@ Kingdom Stats:
 				- Fast growth = 2x, Normal = 1x, Slow = .5x
 			- Kingdoms can receive situational buffs to this number
 				- If a kingdom only controls a capital, this number is doubled
-				- If a kingdom spends wealth, they can temporarily double this number for 5 turns
-					- This buff costs 2 turns of that nation's gross wealth income, based on their wealth income for that turn
-						- EX: If a nation has 300 wealth and produces 200 per turn, they cannot purchase the buff as the cost is 400.
+				- If a kingdom spends gold, they can temporarily double this number for 5 turns
+					- This buff costs 2 turns of that nation's gross gold income, based on their gold income for that turn
+						- EX: If a nation has 300 gold and produces 200 per turn, they cannot purchase the buff as the cost is 400.
 							- If this number increases to 250 the next time the kingdom's production phase, the new cost is 500
 					- This buff can be purchased during the production phase without the use of an action, but cannot be purchased at any other time
 				- All multipliers stack multiplicatively, so goblins who only control their capital and purchase the buff would have 8x recruitment for 5 turns
@@ -54,8 +54,8 @@ Kingdom Stats:
 			- This number is capped for resource nodes at 1, Castles at 20, and Town cap scales based on tier
 				- Town formula is: cap = tier * 2
 			- Defense resets to 0 upon successful capture of a node
-		- Wealth
-			- A fixed amount of wealth the node adds per turn
+		- Gold
+			- A fixed amount of gold the node adds per turn
 		- Production
 			- A fixed amount the node adds to the kingdom's resource pool per turn
 		- Morale
@@ -69,16 +69,16 @@ Kingdom Stats:
 			- Morale cannot drop below one, and capital morale cannot be reduced below 10
 		- Devastation
 			- Devastation is an indicator of how damaged the node is
-			- This value functions as a multiplier ranging from 0 to 1 and is applied to the node's production of food, wealth, and resources during the production phase of the turn
+			- This value functions as a multiplier ranging from 0 to 1 and is applied to the node's production of food, gold, and resources during the production phase of the turn
 				- It also applies to any produce resource actions taken
 				- Production is affected by (1 - devastation)
 			- Devastation is manifested in game as nodes missing random blocks (Minecraft implementation only)
 			- Devastation for all nodes starts at 0, and is capped at 1
 	- There are several different types of nodes, but all fall into one of these categories
 		- Town
-			- Town nodes should add Wealth, with a bonus multiplier of 2x because they're towns
-				- Base production value for a Tier 1 town is 2 food, 100 Wealth, and 4 production
-					- Capitals count as Tier 5 towns, so a capital produces 300 Wealth per turn
+			- Town nodes should add Gold, with a bonus multiplier of 2x because they're towns
+				- Base production value for a Tier 1 town is 2 food, 100 Gold, and 4 production
+					- Capitals count as Tier 5 towns, so a capital produces 300 Gold per turn
 			- Town nodes should also have a tier associated with them, from 0 to 5, which acts as a multiplier on all of their stats except garrison and defense
 				- Tier 0 is "Ruins", which has no stats, only action that can be taken is rebuild
 				- Tier 1 is "Hamlet"
@@ -123,7 +123,7 @@ Kingdom Stats:
 			- Raiding an outpost does not steal resources for the attacker
 		- All nodes are upgraded with the following costs:
 			- Food: (new tier * 5)
-			- Wealth:  (new tier * 300)
+			- Gold:  (new tier * 300)
 			- Resources: (new tier * 100) EXCEPT castles, which require (new tier * 150)
 		- Rebuilding a node to Tier 1 can be done for free, but still requires the Upgrade a Node action to be taken
 			- Exception: a node that is a Ruin once it has been captured (including a Tier 1 node knocked down by the capture) automatically starts rebuilding to Tier 1 for free, without using an action
@@ -139,6 +139,7 @@ Kingdom Stats:
 			- Upkeep is subtracted from nation stockpile
 			- Any node upgrades complete
 			- Kingdom receives 2 actions, plus an additional action for every Castle at T3
+				- Every action must be used; a kingdom can't pass
 		- Actions available are as follows:
 			- Reinforce border: All nodes adjacent to a hostile node receive 1 Defense, up to their cap
 				- This action also reduces all devastation in the affected nodes by .1
@@ -167,9 +168,9 @@ Kingdom Stats:
 				- Attacker must designate a resource to attack for
 				- Acts similarly to Capture Node, but node will not change hands
 				- Resources are stolen from the defender at the following rates, and are calculated based on the surviving number of troops:
-					- .5 food per remaining soldier, rounding down
-					- 10 wealth per remaining soldier
-					- 1 production per remaining soldier
+					- 1 food per remaining soldier
+					- 20 gold per remaining soldier
+					- 2 production per remaining soldier
 				- There is no cap on how much a raid can steal, other than what the defender has in their stockpile
 				- Raids can only deal damage to the enemy garrison equal to 25% of the defender's current garrison value
 					- The attacker receives damage equal to the following: Attacker losses = ½ × (Attacker Power − √(Attacker Power² − Defender Power²))
@@ -177,10 +178,10 @@ Kingdom Stats:
 				- Raids do not reduce the tier of a node
 				- Successful raids inflict .05 devastation for every 10 surviving attackers, up to a maximum of .25
 			- Hire soldiers: The kingdom may spend resources to recruit up to 20 soldiers (2 batches), this number is calculated before growth multipliers
-				- Troops cost 300 Wealth and 50 Resources for every 10 soldiers, paid before any multipliers are applied
+				- Troops cost 300 Gold and 50 Resources for every 10 soldiers, paid before any multipliers are applied
 				- These troops are placed as garrison in the nation capital, or one of their linked town and castle nodes
 				- Troops cannot be recruited if there is no path from that node to the capital of the recruiting faction (troops can be cut off)
-			- Produce Resources: The kingdom receives bonus resources equal to half (50%) of their current food, wealth, and resource production totals (should be calculated after the node upgrades have completed)
+			- Produce Resources: The kingdom receives bonus resources equal to half (50%) of their current food, gold, and resource production totals (should be calculated after the node upgrades have completed)
 				- Only node production counts toward this bonus; food from Import Food contracts is not included
 				- Round each bonus down
 			- Fortify a Node: The kingdom spends 10 resources to increase the defense value of a node by 1 up to the node's cap
@@ -199,10 +200,10 @@ Kingdom Stats:
 					- This only applies to the attacker
 				- On a failed attack, the attacker retreats with 25% of the troops actually sent, not the 4x value
 			- Repair Node: This action reduces the devastation in a single node to 0 for the cost of (Devastation * 100 Resources)
-			- Import Food: The kingdom signs a supply contract, paying wealth to receive food over the next 5 turns
+			- Import Food: The kingdom signs a supply contract, paying gold to receive food over the next 5 turns
 				- The kingdom chooses an amount of up to 5 food per turn
-				- The full cost is paid up front: (food per turn * 5 turns * 50 Wealth)
-					- EX: Importing 4 food per turn costs 4 * 5 * 50 = 1000 Wealth, and delivers 4 food during each of the kingdom's next 5 production phases
+				- The full cost is paid up front: (food per turn * 5 turns * 50 Gold)
+					- EX: Importing 4 food per turn costs 4 * 5 * 50 = 1000 Gold, and delivers 4 food during each of the kingdom's next 5 production phases
 				- Imported food is added to the kingdom's food income during the production phase, and counts as food gained per turn when deciding whether a nation will hire
 				- Multiple contracts can be active at once, and they stack
 				- Contracts are not affected by devastation, and are not cancelled if the kingdom loses nodes

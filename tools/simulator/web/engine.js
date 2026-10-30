@@ -1,92 +1,30 @@
 // Kingdom Stats rules engine. Pure JS, no DOM: runs in the browser (window.KingdomSim) and in Node (module.exports).
+// The rules and maps are the mod's data files: Node reads them from src/main/resources, and the page has them inlined
+// as window.KINGDOM_DATA by build.py.
 (function (root, factory) {
-  const api = factory();
-  if (typeof module === 'object' && module.exports) module.exports = api;
-  else root.KingdomSim = api;
-})(typeof self !== 'undefined' ? self : this, function () {
+  if (typeof module === 'object' && module.exports) {
+    const fs = require('fs');
+    const path = require('path');
+    const dir = path.join(__dirname, '..', '..', '..', 'src', 'main', 'resources', 'data', 'ddkingdom', 'realm', 'sim');
+    const data = { rules: JSON.parse(fs.readFileSync(path.join(dir, 'rules.json'), 'utf8')), maps: {} };
+    for (const f of fs.readdirSync(path.join(dir, 'maps')).sort()) {
+      if (f.endsWith('.json')) data.maps[f.slice(0, -5)] = JSON.parse(fs.readFileSync(path.join(dir, 'maps', f), 'utf8'));
+    }
+    module.exports = factory(data);
+  } else root.KingdomSim = factory(root.KINGDOM_DATA);
+})(typeof self !== 'undefined' ? self : this, function (DATA) {
   'use strict';
 
-  const DEFAULT_CONFIG = {
-    town: { food: 2, wealth: 100, prod: 4, wealthMult: 1, defPerTier: 2 },
-    capitalTier: 5,
-    castle: [
-      { food: 0, defCap: 0, mult: 1 },
-      { food: -1, defCap: 10, mult: 1.5 },
-      { food: -2, defCap: 15, mult: 2 },
-      { food: -3, defCap: 20, mult: 2.5 },
-    ],
-    castleMaxDef: 50,
-    foodNode: [0, 4, 6, 8],
-    prodNode: [0, 20, 30, 40],
-    resource: { defCap: 1, garrisonCap: 10 },
-    outpost: { food: -1, defCap: 5, garrisonCap: 10, warnMove: 10 },
-    upkeep: { food: 1, wealth: 100 },
-    shortagePenalty: 10,
-    growth: { fast: 2, normal: 1, slow: 0.5 },
-    capitalOnlyGrowthMult: 2,
-    buff: { costTurns: 2, duration: 5, mult: 2 },
-    hire: { batchSize: 10, maxBatches: 2, wealth: 300, res: 50 },
-    upgrade: { food: 5, wealth: 300, res: 100, castleRes: 150, timeBase: 1, timePerTier: 2 },
-    morale: { start: 3, recover: 1, attacked: 2, lost: 2 },
-    combat: { defDivisor: 20, retreat: 0.25, captureDevastation: 0.5, heroicMult: 4 },
-    raid: { foodPer: 0.5, wealthPer: 10, prodPer: 1, maxTurns: 0, garrisonDmg: 0.25, devPer10: 0.05, devMax: 0.25 },
-    fortify: { cost: 10, maxSteps: 3, devPerStep: 0.1 },
-    reinforceBorder: { def: 1, dev: 0.1, neutralIsHostile: false },
-    repairCost: 100,
-    wealthTax: { rate: 0, free: 3000 },
-    // A node that is a ruin (T0) once captured starts a free rebuild to T1 that costs no action and completes next turn.
-    freeRebuildOnCapture: true,
-    produce: { payout: 0.5 },
-    importFood: { enabled: true, wealthPerFood: 50, maxPerAction: 5, duration: 5 },
-    // Actions every kingdom gets each turn, before the extra one from each Tier 3 castle.
-    baseActions: 2,
-    bonusActionCastleTier: 3,
-    // Extra actions per turn that can't be used for Capture, Raid or Heroic Conquest (0 = off).
-    // economyOnly also rules out Hire and Send reinforcements for these extra actions.
-    nonCombatActions: { count: 0, economyOnly: false },
-    turnOrder: 'rotate',
-    ai: {
-      noise: 0.2, horizon: 25, foodValue: 50, resValue: 3, soldierValue: 40,
-      // Missing fields fall back to PERSONALITY_DEFAULTS. Faction behaviours come from kingdom-behaviour.txt.
-      personalities: {
-        balanced:   { aggr: 1.0, raid: 0.8, def: 1.0, econ: 1.0, mil: 1.0, margin: 1.25, armyRatio: 1.0, minArmy: 30 },
-        aggressive: { aggr: 1.6, raid: 1.1, def: 0.7, econ: 0.8, mil: 1.4, margin: 1.1, armyRatio: 1.4, minArmy: 40 },
-        defensive:  { aggr: 0.5, raid: 0.5, def: 1.6, econ: 1.1, mil: 1.0, margin: 1.5, armyRatio: 1.3, minArmy: 35 },
-        economic:   { aggr: 0.7, raid: 0.6, def: 0.9, econ: 1.5, mil: 0.7, margin: 1.3, armyRatio: 0.8, minArmy: 25 },
-        // Expands aggressively; attacks on a toss-up but not blindly; leaves other monsters alone unless a node is weakened;
-        // secures new territory before expanding again; fortifies nodes under attack and tries to retake lost ones.
-        goblin:     { aggr: 1.6, raid: 0.9, def: 1.1, econ: 0.8, mil: 1.4, margin: 1.05, raidMargin: 1.1, armyRatio: 1.3, minArmy: 40,
-                      targets: 'avoidMonsters', secureNew: 1, fortifyAttacked: 2, retake: 1.6 },
-        // Only ever captures, raids or hires (warOnly, warHire), and will take losing fights; nothing is held back in reserve.
-        orc:        { aggr: 1.8, raid: 1.0, def: 0.4, econ: 0.7, mil: 1.7, margin: 1.15, raidMargin: 1.2, armyRatio: 1.5, minArmy: 45,
-                      reserveMult: 0, capitalReserve: 0, retake: 0.7, warOnly: 1, warHire: 1 },
-        // Expands to hold the area around its capital and fortifies it; raids nearby nodes only when nearly certain to win,
-        // mostly for wealth; captures further out but leaves that land low tier.
-        kobold:     { aggr: 0.9, raid: 3, def: 1.4, econ: 1.1, mil: 1.0, margin: 1.4, raidMargin: 1.5, armyRatio: 1.2, minArmy: 30,
-                      homeRadius: 2, homeBias: 1.6, wealthRaidBias: 1.5, upgradeAway: 0 },
-        // Takes its home nodes and retakes them when attacked. counter: when attacked, the army pushes towards the
-        // aggressor's capital and raids it, falling back home after a lost fight or when the next fight looks lost.
-        elemental:  { aggr: 1.2, raid: 0, def: 1.0, econ: 1.0, mil: 1.3, margin: 1.1, raidMargin: 1.1, armyRatio: 1.0, minArmy: 30,
-                      targets: 'home', retake: 2, fortifyAttacked: 2, capitalReserve: 10, counter: 1 },
-        // Player faction: tries to hold as much land as possible (values territory highly, secures and retakes it),
-        // only raids it is fairly confident in, and spreads its troops to where they're needed.
-        hearthbound: { aggr: 1.3, raid: 0.8, def: 1.3, econ: 1.0, mil: 1.2, margin: 1.3, raidMargin: 1.3, armyRatio: 1.2, minArmy: 35,
-                      rebalance: 1, leaveBehind: 8, landValue: 2, retake: 1.8, secureNew: 1, fortifyAttacked: 1.5 },
-        // Sits in its capital, takes the resource nodes behind it, and attacks its foes (the kingdom's foes list) on any shared
-        // border to knock their nodes down a tier, razing what it takes and bringing the army home afterwards.
-        dwarf:      { aggr: 1.3, raid: 0, def: 1.2, econ: 1.0, mil: 1.2, margin: 1.2, armyRatio: 1.2, minArmy: 30,
-                      targets: 'raze', raze: 1, capitalReserve: 10 },
-        // Attacks whenever a battle can be won, because every battle raises some of the dead (the kingdom's raiseDead share).
-        undead:     { aggr: 1.5, raid: 1.4, def: 0.9, econ: 0.8, mil: 1.2, margin: 1.0, raidMargin: 1.0, armyRatio: 1.2, minArmy: 35 },
-      },
-    },
-  };
+  // Every rule number, from the mod's data/ddkingdom/realm/sim/rules.json (the Java simulator reads the same file).
+  const DEFAULT_CONFIG = clone(DATA.rules);
+  // The maps, from data/ddkingdom/realm/sim/maps, by file name: large_ruins is the default.
+  const MAPS = DATA.maps;
 
   const PERSONALITY_DEFAULTS = {
     aggr: 1, raid: 0.8, def: 1, econ: 1, mil: 1, margin: 1.25, raidMargin: 0, armyRatio: 1, minArmy: 30,
     targets: 'any', reserveMult: 1, capitalReserve: 0, retake: 1, secureNew: 0, fortifyAttacked: 1,
-    homeRadius: 0, homeBias: 1, upgradeAway: 1, wealthRaidBias: 1, burst: 0, burstRatio: 2, rebalance: 0, leaveBehind: 0, landValue: 1,
-    counter: 0, warOnly: 0, warHire: 0, raze: 0,
+    homeRadius: 0, homeBias: 1, upgradeAway: 1, goldRaidBias: 1, burst: 0, burstRatio: 2, rebalance: 0, leaveBehind: 0, landValue: 1,
+    counter: 0, warOnly: 0, warHire: 0, raze: 0, minWin: 0, raidMinWin: 0, guardMult: 1,
   };
 
   const TIER_NAMES = {
@@ -112,7 +50,6 @@
     heroic: 'Heroic conquest',
     repair: 'Repair node',
     import_food: 'Import food',
-    pass: 'Pass',
   };
 
 
@@ -145,31 +82,87 @@
     return garrison * (strength || 1) * (1 + finalDef / cfg.combat.defDivisor) + finalDef;
   }
 
-  // Power is troops × multiplier (heroic ×4, faction strength); survivors are converted back to troops by dividing by it.
-  function resolveCapture(cfg, troops, garrison, dp, heroic, strength) {
+  // ---- Dice (rules: combat.dice) ----
+  // Each side rolls a die; its power is multiplied ("scaled": 1 + (roll - middle) x swing) or added to ("flat": roll x flat).
+  const NO_DICE = { attackRoll: 0, defenseRoll: 0, attackMult: 1, attackAdd: 0, defenseMult: 1, defenseAdd: 0 };
+  function diceOn(d) { return !!d && (d.mode === 'scaled' || d.mode === 'flat'); }
+  function diceOf(d, a, b) {
+    const middle = (d.sides + 1) / 2;
+    if (d.mode === 'scaled') return { attackRoll: a, defenseRoll: b, attackMult: 1 + (a - middle) * d.swing, attackAdd: 0, defenseMult: 1 + (b - middle) * d.swing, defenseAdd: 0 };
+    return { attackRoll: a, defenseRoll: b, attackMult: 1, attackAdd: a * d.flat, defenseMult: 1, defenseAdd: b * d.flat };
+  }
+  function rollDice(d, rand) {
+    if (!diceOn(d)) return NO_DICE;
+    const a = 1 + Math.floor(rand() * d.sides), b = 1 + Math.floor(rand() * d.sides);
+    return diceOf(d, a, b);
+  }
+
+  // Power is troops x multiplier (heroic x4, faction strength) x the attacker's roll; survivors are turned back into troops
+  // by dividing by it. Ties go to the defender.
+  function resolveCapture(cfg, troops, garrison, dp, heroic, strength, dice) {
+    dice = dice || NO_DICE;
     const mult = (heroic ? cfg.combat.heroicMult : 1) * (strength || 1);
-    const ap = troops * mult;
+    const ap = troops * mult * dice.attackMult + dice.attackAdd;
+    dp = dp * dice.defenseMult + dice.defenseAdd;
     if (ap > dp) {
       const raw = Math.sqrt(ap * ap - dp * dp);
-      const survivors = Math.min(troops, Math.floor(raw / mult));
+      const survivors = Math.min(troops, Math.floor(raw / (mult * dice.attackMult)));
       return { win: true, ap, dp, survivors, attackerLosses: troops - survivors, defenderRemaining: 0, defenderLosses: garrison };
     }
-    // Ties go to the defender.
     const retreat = Math.floor(troops * cfg.combat.retreat);
     const survPow = Math.sqrt(dp * dp - ap * ap);
     const defRem = dp > 0 ? Math.floor(garrison * survPow / dp) : garrison;
     return { win: false, ap, dp, survivors: retreat, attackerLosses: troops - retreat, defenderRemaining: defRem, defenderLosses: garrison - defRem };
   }
 
-  function resolveRaid(cfg, troops, garrison, dp, strength) {
-    const s = strength || 1, ap = troops * s;
-    if (ap > dp) {
-      const losses = 0.5 * (ap - Math.sqrt(ap * ap - dp * dp)) / s;
+  function resolveRaid(cfg, troops, garrison, dp, strength, dice) {
+    dice = dice || NO_DICE;
+    const s = strength || 1, ap = troops * s * dice.attackMult + dice.attackAdd;
+    const rolledDp = dp * dice.defenseMult + dice.defenseAdd;
+    if (ap > rolledDp) {
+      const losses = 0.5 * (ap - Math.sqrt(ap * ap - rolledDp * rolledDp)) / (s * dice.attackMult);
       const survivors = Math.max(0, Math.floor(troops - losses));
       const defLoss = Math.floor(garrison * cfg.raid.garrisonDmg);
-      return { win: true, ap, dp, survivors, attackerLosses: troops - survivors, defenderRemaining: garrison - defLoss, defenderLosses: defLoss };
+      return { win: true, ap, dp: rolledDp, survivors, attackerLosses: troops - survivors, defenderRemaining: garrison - defLoss, defenderLosses: defLoss };
     }
-    return resolveCapture(cfg, troops, garrison, dp, false, s);
+    return resolveCapture(cfg, troops, garrison, dp, false, s, dice);
+  }
+
+  // What a battle can be expected to do over every roll of the dice: the chance the attacker wins, the troops each side
+  // expects to lose, and the attacker's troops left when it wins. Without dice it's the one battle the rules give.
+  function odds(cfg, raid, troops, garrison, dp, heroic, strength) {
+    const d = cfg.combat.dice;
+    if (!diceOn(d)) {
+      const b = raid ? resolveRaid(cfg, troops, garrison, dp, strength) : resolveCapture(cfg, troops, garrison, dp, heroic, strength);
+      return { win: b.win ? 1 : 0, attackerLosses: b.attackerLosses, defenderLosses: b.defenderLosses, winSurvivors: b.win ? b.survivors : 0 };
+    }
+    let wins = 0, aL = 0, dL = 0, ws = 0;
+    for (let a = 1; a <= d.sides; a++) {
+      for (let b = 1; b <= d.sides; b++) {
+        const roll = diceOf(d, a, b);
+        const r = raid ? resolveRaid(cfg, troops, garrison, dp, strength, roll) : resolveCapture(cfg, troops, garrison, dp, heroic, strength, roll);
+        aL += r.attackerLosses; dL += r.defenderLosses;
+        if (r.win) { wins++; ws += r.survivors; }
+      }
+    }
+    const rolls = d.sides * d.sides;
+    return { win: wins / rolls, attackerLosses: aL / rolls, defenderLosses: dL / rolls, winSurvivors: wins === 0 ? 0 : ws / wins };
+  }
+
+  // How many times the defender's power the attacker's must be to win at least `chance` of the time, with scaled dice.
+  // 0 for other dice, which don't scale (or none).
+  function marginFor(d, chance) {
+    if (!d || d.mode !== 'scaled') return 0;
+    const ratios = [];
+    for (let a = 1; a <= d.sides; a++) for (let b = 1; b <= d.sides; b++) { const r = diceOf(d, a, b); ratios.push(r.defenseMult / r.attackMult); }
+    ratios.sort((x, y) => x - y);
+    const k = Math.max(1, Math.min(ratios.length, Math.ceil(chance * ratios.length - 1e-9)));
+    return ratios[k - 1];
+  }
+
+  // The dice in a battle's log line, with the power they gave each side.
+  function rollText(dice, r) {
+    return dice.attackRoll ? `, rolls ${dice.attackRoll} vs ${dice.defenseRoll} (power ${r2(r.ap)} vs ${r2(r.dp)})` : '';
   }
 
   // ---- Game ----
@@ -184,8 +177,8 @@
       this.quiet = !!opts.quiet;
       const sc = clone(scenario);
       this.kingdoms = sc.kingdoms.map((k) => Object.assign({
-        food: 0, wealth: 0, res: 0, growth: 'normal', ai: 'balanced', goblinRule: false, buffTurns: 0,
-        strength: 1, player: false, mode: 'gather', raiseDead: 0,
+        food: 0, gold: 0, res: 0, growth: 'normal', ai: 'balanced', goblinRule: false, buffTurns: 0,
+        strength: 1, player: false, mode: 'gather', raiseDead: 0, lastProduced: null,
       }, k));
       for (const k of this.kingdoms) {
         k.imports = (k.imports || []).map((c) => Object.assign({}, c));
@@ -195,8 +188,8 @@
       for (const k of this.kingdoms) {
         k.stats = {
           actions: {}, capturesTried: 0, capturesWon: 0, raidsTried: 0, raidsWon: 0, hired: 0,
-          battleLosses: 0, kills: 0, shortageLosses: 0, foodShortTurns: 0, wealthShortTurns: 0,
-          buffs: 0, nodesGained: 0, nodesLost: 0, stolen: { food: 0, wealth: 0, res: 0 }, turns: 0,
+          battleLosses: 0, kills: 0, shortageLosses: 0, foodShortTurns: 0, goldShortTurns: 0,
+          buffs: 0, nodesGained: 0, nodesLost: 0, stolen: { food: 0, gold: 0, res: 0 }, turns: 0, upsets: 0,
         };
         this.K[k.id] = k;
       }
@@ -220,6 +213,7 @@
       this.cur = null;
       this.log = [];
       this.history = [];
+      this.pcache = {};
       this.snapshot(0);
     }
 
@@ -234,9 +228,9 @@
       for (const k of this.kingdoms) {
         const inc = this.income(k.id), up = this.upkeep(k.id);
         row.k[k.id] = {
-          food: k.food, wealth: k.wealth, res: k.res, army: this.army(k.id),
+          food: k.food, gold: k.gold, res: k.res, army: this.army(k.id),
           nodes: this.ownedNodes(k.id).length,
-          foodNet: r2(inc.food - up.food), wealthNet: r2(inc.wealth - up.wealth), resNet: r2(inc.prod),
+          foodNet: r2(inc.food - up.food), goldNet: r2(inc.gold - up.gold), resNet: r2(inc.prod),
         };
       }
       this.history.push(row);
@@ -253,20 +247,20 @@
         case 'capital':
         case 'town': {
           const m = tierMult(n.type === 'capital' ? c.capitalTier : t);
-          return { food: c.town.food * m, wealth: c.town.wealth * m * c.town.wealthMult, prod: c.town.prod * m };
+          return { food: c.town.food * m, gold: c.town.gold * m * c.town.goldMult, prod: c.town.prod * m };
         }
-        case 'castle': return { food: (c.castle[t] || c.castle[0]).food, wealth: 0, prod: 0 };
-        case 'food': return { food: c.foodNode[t] || 0, wealth: 0, prod: 0 };
-        case 'production': return { food: 0, wealth: 0, prod: c.prodNode[t] || 0 };
-        case 'outpost': return { food: t >= 1 ? c.outpost.food : 0, wealth: 0, prod: 0 };
+        case 'castle': return { food: (c.castle[t] || c.castle[0]).food, gold: 0, prod: 0 };
+        case 'food': return { food: c.foodNode[t] || 0, gold: 0, prod: 0 };
+        case 'production': return { food: 0, gold: 0, prod: c.prodNode[t] || 0 };
+        case 'outpost': return { food: t >= 1 ? c.outpost.food : 0, gold: 0, prod: 0 };
       }
-      return { food: 0, wealth: 0, prod: 0 };
+      return { food: 0, gold: 0, prod: 0 };
     }
     // Devastation scales production only; fixed food costs (castles, outposts) are not reduced.
     output(n, devOverride) {
       const b = this.baseOutput(n), f = 1 - (devOverride == null ? n.devastation : devOverride);
       const s = (v) => (v > 0 ? v * f : v);
-      return { food: s(b.food), wealth: s(b.wealth), prod: s(b.prod) };
+      return { food: s(b.food), gold: s(b.gold), prod: s(b.prod) };
     }
     defCap(n, tierOverride) {
       const c = this.cfg, t = tierOverride == null ? n.tier : tierOverride;
@@ -313,9 +307,9 @@
     army(kid) { let s = 0; for (const n of this.nodes) if (n.owner === kid) s += n.garrison; return s; }
     // Node output plus food arriving from import contracts (nodesOnly leaves the imports out).
     income(kid, nodesOnly) {
-      const t = { food: 0, wealth: 0, prod: 0 };
+      const t = { food: 0, gold: 0, prod: 0 };
       for (const n of this.nodes) if (n.owner === kid) {
-        const o = this.output(n); t.food += o.food; t.wealth += o.wealth; t.prod += o.prod;
+        const o = this.output(n); t.food += o.food; t.gold += o.gold; t.prod += o.prod;
       }
       if (!nodesOnly) t.food += this.importedFood(kid);
       return t;
@@ -323,7 +317,7 @@
     importedFood(kid) { return this.K[kid].imports.reduce((a, c) => a + c.food, 0); }
     upkeepFor(army, kid) {
       const b = Math.ceil(army / this.cfg.hire.batchSize), m = (kid && this.K[kid].upkeepMult) || 1;
-      return { batches: b, food: Math.ceil(b * this.cfg.upkeep.food * m), wealth: Math.ceil(b * this.cfg.upkeep.wealth * m) };
+      return { batches: b, food: Math.ceil(b * this.cfg.upkeep.food * m), gold: Math.ceil(b * this.cfg.upkeep.gold * m) };
     }
     upkeep(kid) { return this.upkeepFor(this.army(kid), kid); }
     growthMult(kid) {
@@ -360,13 +354,13 @@
     }
     upgradeCost(n) {
       const nt = n.tier + 1, u = this.cfg.upgrade;
-      if (n.tier === 0) return { food: 0, wealth: 0, res: 0, newTier: 1, turns: u.timeBase + u.timePerTier };
+      if (n.tier === 0) return { food: 0, gold: 0, res: 0, newTier: 1, turns: u.timeBase + u.timePerTier };
       return {
-        food: nt * u.food, wealth: nt * u.wealth, res: nt * (n.type === 'castle' ? u.castleRes : u.res),
+        food: nt * u.food, gold: nt * u.gold, res: nt * (n.type === 'castle' ? u.castleRes : u.res),
         newTier: nt, turns: u.timeBase + nt * u.timePerTier,
       };
     }
-    buffCost() { return this.cur ? this.cfg.buff.costTurns * this.cur.grossWealth : 0; }
+    buffCost() { return this.cur ? this.cfg.buff.costTurns * this.cur.grossGold : 0; }
 
     // ---- turn flow ----
     currentKid() { return this.order[this.turnPos]; }
@@ -377,11 +371,11 @@
         n.morale = n.type === 'capital' ? 10 : Math.min(10, n.morale + c.morale.recover);
       }
       const inc = this.income(kid);
-      k.food += inc.food; k.wealth += inc.wealth; k.res += inc.prod;
-      k.food = r2(k.food); k.wealth = r2(k.wealth); k.res = r2(k.res);
+      k.food += inc.food; k.gold += inc.gold; k.res += inc.prod;
+      k.food = r2(k.food); k.gold = r2(k.gold); k.res = r2(k.res);
       k.stats.turns++;
-      this.cur = { kid, phase: 'production', actionsLeft: 0, actionsTotal: 0, grossWealth: inc.wealth };
-      this.emit(kid, 'phase', `Production: +${r2(inc.food)} food, +${r2(inc.wealth)} wealth, +${r2(inc.prod)} resources → stockpile ${k.food} / ${k.wealth} / ${k.res}`);
+      this.cur = { kid, phase: 'production', actionsLeft: 0, actionsTotal: 0, grossGold: inc.gold };
+      this.emit(kid, 'phase', `Production: +${r2(inc.food)} food, +${r2(inc.gold)} gold, +${r2(inc.prod)} resources → stockpile ${k.food} / ${k.gold} / ${k.res}`);
       return this.cur;
     }
 
@@ -389,25 +383,25 @@
       const cur = this.cur;
       if (!cur || cur.phase !== 'production') throw new Error('The growth buff can only be bought during the production phase.');
       const k = this.K[cur.kid], cost = this.buffCost();
-      if (k.wealth < cost) throw new Error(`Growth buff costs ${cost} wealth (2 turns of gross wealth income); only ${k.wealth} available.`);
-      k.wealth = r2(k.wealth - cost);
+      if (k.gold < cost) throw new Error(`Growth buff costs ${cost} gold (2 turns of gross gold income); only ${k.gold} available.`);
+      k.gold = r2(k.gold - cost);
       k.buffTurns = this.cfg.buff.duration;
       k.stats.buffs++;
-      this.emit(cur.kid, 'buff', `Bought growth buff for ${cost} wealth: growth ×${this.cfg.buff.mult} for ${this.cfg.buff.duration} turns (now ×${this.growthMult(cur.kid)}).`);
+      this.emit(cur.kid, 'buff', `Bought growth buff for ${cost} gold: growth ×${this.cfg.buff.mult} for ${this.cfg.buff.duration} turns (now ×${this.growthMult(cur.kid)}).`);
     }
 
     finishProduction() {
       const cur = this.cur, kid = cur.kid, k = this.K[kid], c = this.cfg;
       // Upkeep
       const army = this.army(kid), up = this.upkeepFor(army, kid);
-      k.food = r2(k.food - up.food); k.wealth = r2(k.wealth - up.wealth);
-      // Optional stockpile tax: a share of wealth above the tax-free amount is lost each upkeep (0 = off).
-      if (c.wealthTax.rate > 0 && k.wealth > c.wealthTax.free) k.wealth = r2(k.wealth - (k.wealth - c.wealthTax.free) * c.wealthTax.rate);
+      k.food = r2(k.food - up.food); k.gold = r2(k.gold - up.gold);
+      // Optional stockpile tax: a share of gold above the tax-free amount is lost each upkeep (0 = off).
+      if (c.goldTax.rate > 0 && k.gold > c.goldTax.free) k.gold = r2(k.gold - (k.gold - c.goldTax.free) * c.goldTax.rate);
       const kinds = [];
       if (k.food < 0) { kinds.push('food'); k.stats.foodShortTurns++; k.food = 0; }
-      if (k.wealth < 0) { kinds.push('wealth'); k.stats.wealthShortTurns++; k.wealth = 0; }
+      if (k.gold < 0) { kinds.push('gold'); k.stats.goldShortTurns++; k.gold = 0; }
       const short = kinds.length;
-      this.emit(kid, 'phase', `Upkeep for ${army} soldiers (${up.batches} batches): −${up.food} food, −${up.wealth} wealth`);
+      this.emit(kid, 'phase', `Upkeep for ${army} soldiers (${up.batches} batches): −${up.food} food, −${up.gold} gold`);
       if (short) {
         const largest = this.ownedNodes(kid).reduce((a, b) => (b.garrison > a.garrison ? b : a), this.capital(kid));
         const loss = Math.min(largest.garrison, c.shortagePenalty * short);
@@ -463,7 +457,7 @@
       let guard = 10;
       while (this.cur && this.cur.actionsLeft > 0 && guard-- > 0) {
         const a = this.aiChoose(kid);
-        try { this.act(a); } catch (e) { this.act({ type: 'produce' }); }
+        try { this.act(a); } catch (e) { this.act(this.fallback(kid)); }
       }
       if (this.cur) this.endTurn();
       return 'done';
@@ -492,7 +486,6 @@
       cur.actionsLeft--;
       if (cur.actionsLeft <= 0) this.endTurn();
     }
-    skipActions() { if (this.cur && this.cur.phase === 'actions') this.endTurn(); }
 
     own(kid, id, what) {
       const n = this.N[id];
@@ -506,7 +499,9 @@
       return x;
     }
 
-    do_pass(kid) { this.emit(kid, 'action', 'No attack available: the action is spent idle.'); }
+    // The action a kingdom takes when nothing better is allowed: Produce Resources, or if that's on its cooldown,
+    // Reinforce border (always allowed, even if it does nothing). Every action is used; there's no passing.
+    fallback(kid) { return { type: this.canProduce(kid) ? 'produce' : 'reinforce_border' }; }
 
     do_reinforce_border(kid) {
       const c = this.cfg.reinforceBorder, parts = [];
@@ -574,13 +569,15 @@
       const { from, target, troops } = this.attackChecks(kid, a, heroic ? 'heroic' : 'capture');
       this.watchtowerWarning(target);
       const defender = target.owner, fd = this.finalDefense(target), dp = this.defPower(target), g = target.garrison;
-      const r = resolveCapture(c, troops, g, dp, heroic, this.strength(kid));
+      const dice = rollDice(c.combat.dice, this.rand);
+      const r = resolveCapture(c, troops, g, dp, heroic, this.strength(kid), dice);
       k.stats.capturesTried++;
+      if (dice.attackRoll && r.win !== resolveCapture(c, troops, g, dp, heroic, this.strength(kid)).win) k.stats.upsets++;
       from.garrison -= troops;
       this.hitMorale(target, c.morale.attacked);
       target.attackedRound = this.round;
       const label = heroic ? 'Heroic conquest' : 'Capture';
-      const head = `${label}: ${troops}${heroic ? ` (×${c.combat.heroicMult} = ${r.ap})` : ''} from ${from.name} vs ${target.name} [${this.kname(defender)}, ${g} garrison, defense ${r2(fd)}, power ${r2(dp)}]`;
+      const head = `${label}: ${troops}${heroic ? ` (×${c.combat.heroicMult})` : ''} from ${from.name} vs ${target.name} [${this.kname(defender)}, ${g} garrison, defense ${r2(fd)}, power ${r2(dp)}]${rollText(dice, r)}`;
       k.stats.battleLosses += r.attackerLosses; k.stats.kills += r.defenderLosses;
       if (defender) this.K[defender].stats.battleLosses += r.defenderLosses;
       this.noteAttack(kid, defender, r.win);
@@ -600,7 +597,7 @@
         target.garrison = keep;
         from.garrison += r.survivors - keep;
         this.raiseDead(kid, defender, from, target, r);
-        this.emit(kid, 'capture', `${head} → CAPTURED. ${r.survivors} survive (√(${r2(r.ap)}² − ${r2(dp)}²)${heroic ? ' ÷ ' + c.combat.heroicMult : ''}); ${target.name} drops to ${this.tierName(target)} (T${target.tier}), devastation ${target.devastation}${target.upgrade ? '; free rebuild to T1 next turn' : ''}.${keep < r.survivors ? ` ${r.survivors - keep} over the garrison cap return home.` : ''}`);
+        this.emit(kid, 'capture', `${head} → CAPTURED. ${r.survivors} survive (√(${r2(r.ap)}² − ${r2(r.dp)}²)${heroic ? ' ÷ ' + c.combat.heroicMult : ''}); ${target.name} drops to ${this.tierName(target)} (T${target.tier}), devastation ${target.devastation}${target.upgrade ? '; free rebuild to T1 next turn' : ''}.${keep < r.survivors ? ` ${r.survivors - keep} over the garrison cap return home.` : ''}`);
       } else {
         target.garrison = r.defenderRemaining;
         from.garrison += r.survivors;
@@ -660,10 +657,10 @@
       const base = this.baseOutput(target);
       const map = {
         food: { per: c.foodPer, out: base.food, key: 'food' },
-        wealth: { per: c.wealthPer, out: base.wealth, key: 'wealth' },
+        gold: { per: c.goldPer, out: base.gold, key: 'gold' },
         res: { per: c.prodPer, out: base.prod, key: 'res' },
       }[resource];
-      if (!map) throw new Error('Pick food, wealth or resources to raid for.');
+      if (!map) throw new Error('Pick food, gold or resources to raid for.');
       const cap = c.maxTurns > 0 ? Math.max(0, map.out * c.maxTurns) : Infinity;
       const stock = Math.max(0, this.K[target.owner][map.key]);
       const amount = Math.max(0, Math.min(Math.floor(survivors * map.per), cap, stock));
@@ -675,15 +672,17 @@
       const { from, target, troops } = this.attackChecks(kid, a, 'raid');
       this.watchtowerWarning(target);
       const defender = target.owner, dk = this.K[defender], fd = this.finalDefense(target), dp = this.defPower(target), g = target.garrison;
-      const r = resolveRaid(c, troops, g, dp, this.strength(kid));
+      const dice = rollDice(c.combat.dice, this.rand);
+      const r = resolveRaid(c, troops, g, dp, this.strength(kid), dice);
       k.stats.raidsTried++;
+      if (dice.attackRoll && r.win !== resolveRaid(c, troops, g, dp, this.strength(kid)).win) k.stats.upsets++;
       from.garrison -= troops;
       this.hitMorale(target, c.morale.attacked);
       target.attackedRound = this.round;
       k.stats.battleLosses += r.attackerLosses; k.stats.kills += r.defenderLosses;
       dk.stats.battleLosses += r.defenderLosses;
       this.noteAttack(kid, defender, r.win);
-      const head = `Raid (${a.resource}): ${troops} from ${from.name} vs ${target.name} [${dk.name}, ${g} garrison, defense ${r2(fd)}, power ${r2(dp)}]`;
+      const head = `Raid (${a.resource}): ${troops} from ${from.name} vs ${target.name} [${dk.name}, ${g} garrison, defense ${r2(fd)}, power ${r2(dp)}]${rollText(dice, r)}`;
       if (r.win) {
         k.stats.raidsWon++;
         target.garrison = r.defenderRemaining;
@@ -714,21 +713,28 @@
       const node = this.own(kid, a.node, 'where to place the troops');
       if (!['capital', 'town', 'castle'].includes(node.type)) throw new Error('Troops can only be placed in the capital, a town or a castle.');
       if (!this.connectedToCapital(kid, node.id)) throw new Error(`${node.name} has no friendly path to the capital; troops are cut off.`);
-      const w = b * c.wealth, rs = b * c.res;
-      if (k.wealth < w || k.res < rs) throw new Error(`Hiring ${b} batch(es) costs ${w} wealth and ${rs} resources.`);
+      const w = b * c.gold, rs = b * c.res;
+      if (k.gold < w || k.res < rs) throw new Error(`Hiring ${b} batch(es) costs ${w} gold and ${rs} resources.`);
       const gm = this.growthMult(kid), soldiers = Math.floor(b * c.batchSize * gm);
-      k.wealth = r2(k.wealth - w); k.res = r2(k.res - rs);
+      k.gold = r2(k.gold - w); k.res = r2(k.res - rs);
       node.garrison += soldiers;
       k.stats.hired += soldiers;
-      this.emit(kid, 'action', `Hire: ${b} batch(es) for ${w} wealth + ${rs} resources × growth ${gm} = ${soldiers} soldiers at ${node.name}.`);
+      this.emit(kid, 'action', `Hire: ${b} batch(es) for ${w} gold + ${rs} resources × growth ${gm} = ${soldiers} soldiers at ${node.name}.`);
     }
 
     // Pays a share of the nodes' per-turn output; imported food does not count.
+    canProduce(kid) {
+      const cd = this.cfg.produce.cooldown || 0, last = this.K[kid].lastProduced;
+      return cd <= 0 || last == null || this.round - last >= cd;
+    }
     do_produce(kid) {
-      const k = this.K[kid], inc = this.income(kid, true), m = this.cfg.produce.payout;
-      const f = Math.floor(Math.max(0, inc.food) * m), w = Math.floor(inc.wealth * m), p = Math.floor(inc.prod * m);
-      k.food = r2(k.food + f); k.wealth = r2(k.wealth + w); k.res = r2(k.res + p);
-      this.emit(kid, 'action', `Produce resources (${m * 100}% of node output): +${f} food, +${w} wealth, +${p} resources.`);
+      const k = this.K[kid];
+      if (!this.canProduce(kid)) throw new Error(`Produce resources can be used once every ${this.cfg.produce.cooldown} turns; next on turn ${k.lastProduced + this.cfg.produce.cooldown}.`);
+      k.lastProduced = this.round;
+      const inc = this.income(kid, true), m = this.cfg.produce.payout;
+      const f = Math.floor(Math.max(0, inc.food) * m), w = Math.floor(inc.gold * m), p = Math.floor(inc.prod * m);
+      k.food = r2(k.food + f); k.gold = r2(k.gold + w); k.res = r2(k.res + p);
+      this.emit(kid, 'action', `Produce resources (${m * 100}% of node output): +${f} food, +${w} gold, +${p} resources.`);
     }
 
     // Supply contract: pay up front, receive food each production phase for the contract's duration.
@@ -737,12 +743,12 @@
       if (!c.enabled) throw new Error('Food imports are turned off in the rules.');
       const food = this.int(a.food, 'Food per turn');
       if (food > c.maxPerAction) throw new Error(`At most ${c.maxPerAction} food per turn per contract.`);
-      const cost = food * c.duration * c.wealthPerFood;
-      if (k.wealth < cost) throw new Error(`Importing ${food} food per turn for ${c.duration} turns costs ${cost} wealth.`);
-      k.wealth = r2(k.wealth - cost);
+      const cost = food * c.duration * c.goldPerFood;
+      if (k.gold < cost) throw new Error(`Importing ${food} food per turn for ${c.duration} turns costs ${cost} gold.`);
+      k.gold = r2(k.gold - cost);
       k.imports.push({ food, turnsLeft: c.duration });
       k.stats.imported = (k.stats.imported || 0) + food * c.duration;
-      this.emit(kid, 'action', `Import food: ${cost} wealth for +${food} food per turn over the next ${c.duration} turns.`);
+      this.emit(kid, 'action', `Import food: ${cost} gold for +${food} food per turn over the next ${c.duration} turns.`);
     }
 
     do_fortify(kid, a) {
@@ -767,12 +773,12 @@
       if (n.upgrade) throw new Error(`${n.name} is already upgrading.`);
       if (n.tier >= MAX_TIER[n.type]) throw new Error(`${n.name} is already at max tier.`);
       const cost = this.upgradeCost(n);
-      if (k.food < cost.food || k.wealth < cost.wealth || k.res < cost.res) {
-        throw new Error(`Upgrading to T${cost.newTier} costs ${cost.food} food, ${cost.wealth} wealth, ${cost.res} resources.`);
+      if (k.food < cost.food || k.gold < cost.gold || k.res < cost.res) {
+        throw new Error(`Upgrading to T${cost.newTier} costs ${cost.food} food, ${cost.gold} gold, ${cost.res} resources.`);
       }
-      k.food = r2(k.food - cost.food); k.wealth = r2(k.wealth - cost.wealth); k.res = r2(k.res - cost.res);
+      k.food = r2(k.food - cost.food); k.gold = r2(k.gold - cost.gold); k.res = r2(k.res - cost.res);
       n.upgrade = { target: cost.newTier, turnsLeft: cost.turns };
-      this.emit(kid, 'action', `${n.tier === 0 ? 'Rebuild' : 'Upgrade'} ${n.name} to T${cost.newTier} (${(TIER_NAMES[n.type] || [])[cost.newTier]}): ${cost.food} food, ${cost.wealth} wealth, ${cost.res} resources, ${cost.turns} turns.`);
+      this.emit(kid, 'action', `${n.tier === 0 ? 'Rebuild' : 'Upgrade'} ${n.name} to T${cost.newTier} (${(TIER_NAMES[n.type] || [])[cost.newTier]}): ${cost.food} food, ${cost.gold} gold, ${cost.res} resources, ${cost.turns} turns.`);
     }
 
     do_repair(kid, a) {
@@ -788,9 +794,46 @@
     }
 
     // ---- AI ----
+    // Fields left out take PERSONALITY_DEFAULTS. With scaled dice, minWin (and raidMinWin) replace the margins with the
+    // ones that win that often: the faction's risk appetite.
     personality(k) {
+      if (this.pcache[k.id]) return this.pcache[k.id];
       const ps = this.cfg.ai.personalities;
-      return Object.assign({}, PERSONALITY_DEFAULTS, ps[k.ai] || ps.balanced);
+      const P = Object.assign({}, PERSONALITY_DEFAULTS, ps[k.ai] || ps.balanced);
+      const d = this.cfg.combat.dice;
+      const m = P.minWin > 0 ? marginFor(d, P.minWin) : 0;
+      if (m > 0) P.margin = m;
+      const rc = P.raidMinWin > 0 ? P.raidMinWin : P.minWin;
+      const rm = rc > 0 ? marginFor(d, rc) : 0;
+      if (rm > 0) P.raidMargin = rm;
+      return (this.pcache[k.id] = P);
+    }
+    guardRules() { const g = this.cfg.ai.guard; return g && g.enabled ? g : null; }
+    // The threat a node keeps a reserve against: the biggest enemy garrison next to it and, with the guard on, a share
+    // of the biggest within guard.reach links, which can take the empty land between and strike next.
+    threat(n, kid) {
+      let t = this.maxAdjThreat(n, kid);
+      const g = this.guardRules();
+      if (!g || g.reach < 2) return t;
+      const seen = new Set([n.id]);
+      let frontier = [n.id];
+      for (let d = 1; d <= g.reach; d++) {
+        const next = [];
+        for (const id of frontier) for (const nb of this.adj[id]) {
+          if (seen.has(nb)) continue;
+          seen.add(nb); next.push(nb);
+          const o = this.N[nb];
+          if (d >= 2 && o.owner && o.owner !== kid) t = Math.max(t, o.garrison * g.reachShare);
+        }
+        frontier = next;
+      }
+      return t;
+    }
+    // With the guard on, the troops a node next to land it doesn't hold always keeps; 0 otherwise, and for capitals.
+    guard(n, kid, P) {
+      const g = this.guardRules();
+      if (!g || n.type === 'capital') return 0;
+      return this.adj[n.id].some((id) => this.N[id].owner !== kid) ? Math.ceil(g.min * P.guardMult) : 0;
     }
     maxAdjThreat(n, kid) {
       let m = 0;
@@ -802,9 +845,9 @@
       const k = this.K[kid], P = this.personality(k);
       if (k.buffTurns > 0) return;
       const cost = this.buffCost();
-      if (cost <= 0 || k.wealth < cost) return;
+      if (cost <= 0 || k.gold < cost) return;
       const army = this.army(kid), desired = this.desiredArmy(kid, P);
-      const after = k.wealth - cost, hireW = this.cfg.hire.wealth * this.cfg.hire.maxBatches;
+      const after = k.gold - cost, hireW = this.cfg.hire.gold * this.cfg.hire.maxBatches;
       const inc = this.income(kid), up = this.upkeepFor(army + 20, kid);
       if (desired - army >= 20 / P.mil && after >= hireW * 2 && inc.food - up.food >= 0 && k.res >= this.cfg.hire.res * 4) this.buyBuff();
     }
@@ -900,7 +943,7 @@
       if (troops < 5) { this.endCounter(kid, 'no army left'); return null; }
       // Raid the capital once adjacent.
       if (this.adj[army.id].includes(ec.id)) {
-        if (troops * str > this.defPower(ec) * P.raidMargin) return { type: 'raid', from: army.id, target: ec.id, troops, resource: 'wealth' };
+        if (troops * str > this.defPower(ec) * P.raidMargin) return { type: 'raid', from: army.id, target: ec.id, troops, resource: 'gold' };
         this.endCounter(kid, `${ec.name} is too strong to raid`);
         return null;
       }
@@ -929,21 +972,21 @@
       const inc = this.income(kid), army = this.army(kid), up = this.upkeepFor(army, kid);
       // Vfull values long-term output; V values stockpile changes, worth less the bigger the hoard already is.
       const sat = (stock, gross) => 1 / (1 + Math.max(0, stock) / (6 * Math.max(gross, 1)));
-      const wf = ai.foodValue * sat(k.food, inc.food), ww = sat(k.wealth, inc.wealth), wr = ai.resValue * sat(k.res, inc.prod);
+      const wf = ai.foodValue * sat(k.food, inc.food), ww = sat(k.gold, inc.gold), wr = ai.resValue * sat(k.res, inc.prod);
       const pr = (o) => (o.prod != null ? o.prod : o.res || 0);
-      const Vfull = (o) => o.food * ai.foodValue + (o.wealth || 0) + pr(o) * ai.resValue;
-      const V = (o) => o.food * wf + (o.wealth || 0) * ww + pr(o) * wr;
-      const netFood = inc.food - up.food, netWealth = inc.wealth - up.wealth;
+      const Vfull = (o) => o.food * ai.foodValue + (o.gold || 0) + pr(o) * ai.resValue;
+      const V = (o) => o.food * wf + (o.gold || 0) * ww + pr(o) * wr;
+      const netFood = inc.food - up.food, netGold = inc.gold - up.gold;
       const onlyCap = this.onlyCapital(kid);
       const SV = ai.soldierValue;
       const cands = [];
       const add = (score, action) => { if (isFinite(score)) cands.push({ score: score * (1 + (this.rand() - 0.5) * ai.noise), action }); };
       const reserve = (n) => {
-        const t = this.maxAdjThreat(n, kid);
+        const t = this.threat(n, kid);
         let r = t ? Math.ceil(Math.min(n.garrison, t * 0.6 * P.def * P.reserveMult)) : 0;
         if (n.type === 'capital') r = Math.max(r, Math.min(n.garrison, P.capitalReserve));
         if (this.garrisonCap(n) === Infinity) r = Math.max(r, Math.min(n.garrison, P.leaveBehind));
-        return r;
+        return Math.max(r, Math.min(n.garrison, this.guard(n, kid, P)));
       };
       const importance = (n) => (n.type === 'capital' ? 1.5 : 1 + Vfull(this.baseOutput(n)) / 600);
       const heroic = onlyCap, hm = (heroic ? c.combat.heroicMult : 1) * str;
@@ -977,6 +1020,9 @@
         (n.defense < this.defCap(n) || this.defPower(n) < this.maxAdjThreat(n, kid) * 1.2)) : [];
       const expandMult = unsecured.length ? 0.35 : 1;
       const attacks = !P.burst;
+      const dice = diceOn(c.combat.dice);
+      // War-only kingdoms (the Orcs) take fights whatever the odds, unless they have a risk appetite to hold them to.
+      const anyFight = !!P.warOnly && !(dice && P.minWin > 0);
 
       // Captures and raids
       if (attacks) for (const from of owned) {
@@ -987,26 +1033,44 @@
           if (t.owner === kid) continue;
           const dp = this.defPower(t);
           if (!allowTarget(t, avail * hm, dp)) continue;
-          if (t.type !== 'capital' && (P.warOnly || avail * hm > dp * P.margin)) {
-            const r = resolveCapture(c, avail, t.garrison, dp, heroic, str);
-            const raised = Math.floor((r.attackerLosses + r.defenderLosses) * (k.raiseDead || 0));
-            add(expandMult * P.aggr * (captureGain(t) - (r.attackerLosses - raised) * SV + r.defenderLosses * SV * 0.3), { type: heroic ? 'heroic' : 'capture', from: from.id, target: tid, troops: avail });
+          if (t.type !== 'capital' && (anyFight || avail * hm > dp * P.margin)) {
+            const capture = { type: heroic ? 'heroic' : 'capture', from: from.id, target: tid, troops: avail };
+            if (dice) {
+              // With dice, the land is only won some of the time; the losses are what each side expects to lose.
+              const o = odds(c, false, avail, t.garrison, dp, heroic, str);
+              const raised = (o.attackerLosses + o.defenderLosses) * (k.raiseDead || 0);
+              add(expandMult * P.aggr * (o.win * captureGain(t) - (o.attackerLosses - raised) * SV + o.defenderLosses * SV * 0.3), capture);
+            } else {
+              const r = resolveCapture(c, avail, t.garrison, dp, heroic, str);
+              const raised = Math.floor((r.attackerLosses + r.defenderLosses) * (k.raiseDead || 0));
+              add(expandMult * P.aggr * (captureGain(t) - (r.attackerLosses - raised) * SV + r.defenderLosses * SV * 0.3), capture);
+            }
           }
           const rm = P.raidMargin || P.margin;
-          if (P.raid > 0 && t.owner && (P.warOnly || avail * str > dp * rm)) {
-            const r = resolveRaid(c, avail, t.garrison, dp, str);
+          if (P.raid > 0 && t.owner && (anyFight || avail * str > dp * rm)) {
+            // Loot and devastation come from the troops left after a win, which the dice make a chance.
+            let lootTroops, chance, aL, dL, raised;
+            if (dice) {
+              const o = odds(c, true, avail, t.garrison, dp, false, str);
+              lootTroops = Math.round(o.winSurvivors); chance = o.win; aL = o.attackerLosses; dL = o.defenderLosses;
+              raised = (aL + dL) * (k.raiseDead || 0);
+            } else {
+              const r = resolveRaid(c, avail, t.garrison, dp, str);
+              lootTroops = r.survivors; chance = 1; aL = r.attackerLosses; dL = r.defenderLosses;
+              raised = Math.floor((aL + dL) * (k.raiseDead || 0));
+            }
             let best = null;
-            for (const res of ['food', 'wealth', 'res']) {
-              const s = this.raidSteal(t, res, r.survivors);
-              let val = Vfull({ food: s.key === 'food' ? s.amount : 0, wealth: s.key === 'wealth' ? s.amount : 0, prod: s.key === 'res' ? s.amount : 0 });
-              if (res === 'wealth') val *= P.wealthRaidBias;
+            for (const res of ['food', 'gold', 'res']) {
+              const s = this.raidSteal(t, res, lootTroops);
+              let val = Vfull({ food: s.key === 'food' ? s.amount : 0, gold: s.key === 'gold' ? s.amount : 0, prod: s.key === 'res' ? s.amount : 0 });
+              if (res === 'gold') val *= P.goldRaidBias;
               if (!best || val > best.val) best = { res, val };
             }
-            const dev = Math.min(c.raid.devMax, c.raid.devPer10 * Math.floor(r.survivors / 10));
+            const dev = Math.min(c.raid.devMax, c.raid.devPer10 * Math.floor(lootTroops / 10));
             const harm = Vfull(this.baseOutput(t)) * dev * 4 * 0.3;
-            const raised = Math.floor((r.attackerLosses + r.defenderLosses) * (k.raiseDead || 0));
-            const score = P.raid * (best.val + r.defenderLosses * SV * 0.7 + harm - (r.attackerLosses - raised) * SV);
-            if (best.val > 0 || r.defenderLosses > 0) add(score, { type: 'raid', from: from.id, target: tid, troops: avail, resource: best.res });
+            const loot = chance * best.val;
+            const score = P.raid * (loot + dL * SV * 0.7 + chance * harm - (aL - raised) * SV);
+            if (loot > 0 || dL > 0) add(score, { type: 'raid', from: from.id, target: tid, troops: avail, resource: best.res });
           }
         }
       }
@@ -1046,17 +1110,17 @@
       const locs = this.hireLocations(kid);
       if (locs.length) {
         for (let b = c.hire.maxBatches; b >= 1; b--) {
-          const W = b * c.hire.wealth, R = b * c.hire.res;
-          if (k.wealth < W || k.res < R) continue;
+          const W = b * c.hire.gold, R = b * c.hire.res;
+          if (k.gold < W || k.res < R) continue;
           const soldiers = Math.floor(b * c.hire.batchSize * gm);
           if (soldiers < 1) continue;
           const nu = this.upkeepFor(army + soldiers, kid);
-          const nf = inc.food - nu.food, nw = inc.wealth - nu.wealth;
+          const nf = inc.food - nu.food, nw = inc.gold - nu.gold;
           let loc = blocked ? locs.find((n) => n.id === blocked.from) : null;
           const progress = loc ? Math.min(1, soldiers / blocked.need) : 0;
           // Goblin exception: may dip into negative food if the hire lets them take a node.
           if (nf < 0 && !(k.goblinRule && progress >= 1)) continue;
-          if (nw < 0 && k.wealth - W < -nw * 4) continue;
+          if (nw < 0 && k.gold - W < -nw * 4) continue;
           if (!loc && P.burst && cap && locs.includes(cap)) loc = cap;
           if (!loc) {
             loc = locs.reduce((a2, n) => {
@@ -1075,7 +1139,7 @@
       // Troops a node needs so its defender power is 1.3× the biggest adjacent enemy garrison.
       const needG = (n) => {
         const T = this.maxAdjThreat(n, kid);
-        if (!T) return n.type === 'capital' ? P.capitalReserve : 0;
+        if (!T) return Math.max(n.type === 'capital' ? P.capitalReserve : 0, this.guard(n, kid, P));
         const fd = this.finalDefense(n);
         return Math.max(0, Math.ceil((T * 1.3 - fd) / (str * (1 + fd / c.combat.defDivisor))));
       };
@@ -1174,8 +1238,8 @@
         // Behaviour: land outside the home area is rebuilt from ruins at most, never raised further.
         if (!P.upgradeAway && P.homeRadius && !home.has(n.id) && n.tier >= 1) continue;
         const cost = this.upgradeCost(n);
-        const foodBuf = Math.max(0, -netFood) * 3, wBuf = Math.max(0, -netWealth) * 3;
-        if (k.food < cost.food + foodBuf || k.wealth < cost.wealth + wBuf || k.res < cost.res) continue;
+        const foodBuf = Math.max(0, -netFood) * 3, wBuf = Math.max(0, -netGold) * 3;
+        if (k.food < cost.food + foodBuf || k.gold < cost.gold + wBuf || k.res < cost.res) continue;
         const eff = Math.max(0, H - cost.turns);
         let gain = (Vfull(this.baseOutput(n, cost.newTier)) - Vfull(this.baseOutput(n))) * eff;
         if (n.type === 'castle') {
@@ -1184,15 +1248,15 @@
           if (cost.newTier === c.bonusActionCastleTier) gain += V(inc) * eff * 0.5;
         }
         if (n.type === 'outpost') gain += this.maxAdjThreat(n, kid) > 0 ? 150 : 20;
-        add(P.econ * (gain - V({ food: cost.food, wealth: cost.wealth, prod: cost.res })), { type: 'upgrade', node: n.id });
+        add(P.econ * (gain - V({ food: cost.food, gold: cost.gold, prod: cost.res })), { type: 'upgrade', node: n.id });
       }
 
-      // Import food: worth it when food, not wealth, is what stops the army from growing.
+      // Import food: worth it when food, not gold, is what stops the army from growing.
       const ic = c.importFood;
       if (ic.enabled) {
         for (let f = ic.maxPerAction; f >= 1; f--) {
-          const cost = f * ic.duration * ic.wealthPerFood;
-          if (k.wealth < cost + Math.max(0, -netWealth) * 3) continue;
+          const cost = f * ic.duration * ic.goldPerFood;
+          if (k.gold < cost + Math.max(0, -netGold) * 3) continue;
           const room = Math.max(0, desired - army) - Math.max(0, netFood) * c.hire.batchSize;
           const enabled = Math.min(f * c.hire.batchSize, Math.max(0, room));
           const relief = netFood < 0 ? Math.min(f, -netFood) * ai.foodValue * ic.duration : 0;
@@ -1202,21 +1266,23 @@
       }
 
       // Produce resources is always available.
-      const nodeInc = this.income(kid, true), pm = c.produce.payout;
-      add(P.econ * V({ food: Math.max(0, nodeInc.food) * pm, wealth: nodeInc.wealth * pm, prod: nodeInc.prod * pm }), { type: 'produce' });
+      if (this.canProduce(kid)) {
+        const nodeInc = this.income(kid, true), pm = c.produce.payout;
+        add(P.econ * V({ food: Math.max(0, nodeInc.food) * pm, gold: nodeInc.gold * pm, prod: nodeInc.prod * pm }), { type: 'produce' });
+      }
 
       if (P.warOnly) {
         const war = cands.filter((c2) => ['capture', 'heroic', 'raid'].includes(c2.action.type) || (P.warHire && c2.action.type === 'hire'));
-        if (!war.length) return { type: 'pass' };
-        cands.length = 0; cands.push(...war);
+        // With no fight to take, it uses the action on the best of everything else: every action is used.
+        if (war.length) { cands.length = 0; cands.push(...war); }
       }
       cands.sort((a2, b2) => b2.score - a2.score);
       // With only restricted slots left, pick the best action that fits them.
       if (this.cur && !(this.cur.generalLeft > 0)) {
         const ok = cands.find((c2) => this.fitsExtraSlot(c2.action.type));
-        return ok ? ok.action : { type: 'produce' };
+        return ok ? ok.action : this.fallback(kid);
       }
-      return cands[0].action;
+      return cands.length ? cands[0].action : this.fallback(kid);
     }
 
     fitsExtraSlot(type) {
@@ -1227,7 +1293,8 @@
   }
 
   return {
-    DEFAULT_CONFIG, TIER_NAMES, MAX_TIER, TYPE_LABELS, ACTION_LABELS,
+    DEFAULT_CONFIG, MAPS, TIER_NAMES, MAX_TIER, TYPE_LABELS, ACTION_LABELS,
     Game, PERSONALITY_DEFAULTS, tierMult, defenderPower, resolveCapture, resolveRaid, deepMerge, clone,
+    diceOn, diceOf, rollDice, odds, marginFor,
   };
 });

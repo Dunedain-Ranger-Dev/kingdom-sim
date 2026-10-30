@@ -25,8 +25,8 @@ Kingdoms:
 			- Average Growth Rate
 			- Troops count as 1.25x their number in battle (attacking and defending), but cost 1.5x upkeep
 			- Only ever takes the Capture Node, Raid or Hire Soldiers actions; never builds, upgrades or fortifies
-				- If none of these is possible, the action is spent idle
-			- Attacks anything not owned by orcs, and will take fights it is likely to lose
+				- If none of these is possible, it takes the best of the other actions instead, since every action must be used
+			- Attacks anything not owned by orcs, and will take fights it is likely to lose, down to about a 1 in 5 chance of winning
 			- Commits every available troop to an attack and keeps no reserve in the capital
 			- Moves main army around nomadically, leaving places previously taken relatively undefended
 			- Doesn't prioritize retaking/holding land
@@ -42,7 +42,7 @@ Kingdoms:
 			- Slow growth rate
 				- Low tier kobold troops are weak, high tier ones are dragons
 			- Fortifies locations surrounding capital, then raids for resources on any nearby nodes when success is almost guaranteed
-			- Will capture land beyond the immediate capital surroundings, but then will leave that territory low tier and focus on bringing back wealth to the capital
+			- Will capture land beyond the immediate capital surroundings, but then will leave that territory low tier and focus on bringing back gold to the capital
 	- Undead
 		- Capital: Morvane
 			- Description: A sunken necropolis in the Blightmarsh, half-swallowed by black water. It was once a city of a civilization that fell long before the exiles arrived.
@@ -93,4 +93,8 @@ Kingdoms:
 			- Attacks any Orc or Goblin node it shares a border with, aiming to knock down the overall tiers of those factions rather than to hold land
 				- Prefers high-tier targets, and only attacks when it is clearly stronger
 				- Does not rebuild or upgrade land it captures, and brings the surviving troops back to the capital afterwards
+	- How sure each faction wants to be of winning before it attacks (battles roll dice, see kingdom-stats):
+		- Undead 35%, Goblins 50% (60% for raids), Elementals 65%, Hearthbound 70% (75% for raids), Kobolds 85% (90% for raids), Dwarves 90%, Orcs 20%
+	- Every faction leaves at least 5 troops on any node that borders land it doesn't hold when it attacks out of it or moves troops away, so its land isn't left empty for anyone to walk into
+		- Orcs leave 2, so the land they pass through is relatively undefended
 	- Map: the continent has about 100 nodes. The Hearthbound hold the southern coast, the Undead the Blightmarsh in the centre, the Elementals the west, the Kobolds the north-west peaks, the Orcs the northern steppe, the Goblins the east, and the Dwarves the north-east corner. Neutral land fills the gaps between them.

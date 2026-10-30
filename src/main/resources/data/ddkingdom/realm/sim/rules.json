@@ -1,9 +1,9 @@
 {
   "town": {
     "food": 2,
-    "wealth": 100,
+    "gold": 100,
     "prod": 4,
-    "wealthMult": 1,
+    "goldMult": 1,
     "defPerTier": 2
   },
   "capitalTier": 5,
@@ -54,7 +54,7 @@
   },
   "upkeep": {
     "food": 1,
-    "wealth": 100
+    "gold": 100
   },
   "shortagePenalty": 10,
   "growth": {
@@ -71,12 +71,12 @@
   "hire": {
     "batchSize": 10,
     "maxBatches": 2,
-    "wealth": 300,
+    "gold": 300,
     "res": 50
   },
   "upgrade": {
     "food": 5,
-    "wealth": 300,
+    "gold": 300,
     "res": 100,
     "castleRes": 150,
     "timeBase": 1,
@@ -101,9 +101,9 @@
     }
   },
   "raid": {
-    "foodPer": 0.5,
-    "wealthPer": 10,
-    "prodPer": 1,
+    "foodPer": 1,
+    "goldPer": 20,
+    "prodPer": 2,
     "maxTurns": 0,
     "garrisonDmg": 0.25,
     "devPer10": 0.05,
@@ -120,17 +120,18 @@
     "neutralIsHostile": false
   },
   "repairCost": 100,
-  "wealthTax": {
+  "goldTax": {
     "rate": 0,
     "free": 3000
   },
   "freeRebuildOnCapture": true,
   "produce": {
-    "payout": 0.5
+    "payout": 0.5,
+    "cooldown": 0
   },
   "importFood": {
     "enabled": true,
-    "wealthPerFood": 50,
+    "goldPerFood": 50,
     "maxPerAction": 5,
     "duration": 5
   },
@@ -147,6 +148,12 @@
     "foodValue": 50,
     "resValue": 3,
     "soldierValue": 40,
+    "guard": {
+      "enabled": true,
+      "min": 5,
+      "reach": 2,
+      "reachShare": 0.5
+    },
     "personalities": {
       "balanced": {
         "aggr": 1,
@@ -156,7 +163,8 @@
         "mil": 1,
         "margin": 1.25,
         "armyRatio": 1,
-        "minArmy": 30
+        "minArmy": 30,
+        "minWin": 0.7
       },
       "aggressive": {
         "aggr": 1.6,
@@ -166,7 +174,8 @@
         "mil": 1.4,
         "margin": 1.1,
         "armyRatio": 1.4,
-        "minArmy": 40
+        "minArmy": 40,
+        "minWin": 0.55
       },
       "defensive": {
         "aggr": 0.5,
@@ -176,7 +185,8 @@
         "mil": 1,
         "margin": 1.5,
         "armyRatio": 1.3,
-        "minArmy": 35
+        "minArmy": 35,
+        "minWin": 0.85
       },
       "economic": {
         "aggr": 0.7,
@@ -186,7 +196,8 @@
         "mil": 0.7,
         "margin": 1.3,
         "armyRatio": 0.8,
-        "minArmy": 25
+        "minArmy": 25,
+        "minWin": 0.75
       },
       "goblin": {
         "aggr": 1.6,
@@ -201,7 +212,9 @@
         "targets": "avoidMonsters",
         "secureNew": 1,
         "fortifyAttacked": 2,
-        "retake": 1.6
+        "retake": 1.6,
+        "minWin": 0.5,
+        "raidMinWin": 0.6
       },
       "orc": {
         "aggr": 1.8,
@@ -217,7 +230,9 @@
         "capitalReserve": 0,
         "retake": 0.7,
         "warOnly": 1,
-        "warHire": 1
+        "warHire": 1,
+        "minWin": 0.2,
+        "guardMult": 0.3
       },
       "kobold": {
         "aggr": 0.9,
@@ -231,8 +246,10 @@
         "minArmy": 30,
         "homeRadius": 2,
         "homeBias": 1.6,
-        "wealthRaidBias": 1.5,
-        "upgradeAway": 0
+        "goldRaidBias": 1.5,
+        "upgradeAway": 0,
+        "minWin": 0.85,
+        "raidMinWin": 0.9
       },
       "elemental": {
         "aggr": 1.2,
@@ -248,7 +265,8 @@
         "retake": 2,
         "fortifyAttacked": 2,
         "capitalReserve": 10,
-        "counter": 1
+        "counter": 1,
+        "minWin": 0.65
       },
       "hearthbound": {
         "aggr": 1.3,
@@ -265,7 +283,9 @@
         "landValue": 2,
         "retake": 1.8,
         "secureNew": 1,
-        "fortifyAttacked": 1.5
+        "fortifyAttacked": 1.5,
+        "minWin": 0.7,
+        "raidMinWin": 0.75
       },
       "dwarf": {
         "aggr": 1.3,
@@ -278,7 +298,8 @@
         "minArmy": 30,
         "targets": "raze",
         "raze": 1,
-        "capitalReserve": 10
+        "capitalReserve": 10,
+        "minWin": 0.9
       },
       "undead": {
         "aggr": 1.5,
@@ -289,7 +310,8 @@
         "margin": 1,
         "raidMargin": 1,
         "armyRatio": 1.2,
-        "minArmy": 35
+        "minArmy": 35,
+        "minWin": 0.35
       }
     }
   }

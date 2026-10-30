@@ -25,7 +25,7 @@ public final class SimMap {
     /** A kingdom as a map sets it up. Field names match the simulator's map JSON. */
     public static final class KingdomSetup {
         public String id, name, color = "";
-        public double food, wealth, res;
+        public double food, gold, res;
         /** "fast", "normal" or "slow" (a key of {@link Rules#growth}). */
         public String growth = "normal";
         /** Its personality, a key of {@link Rules.Ai#personalities}. */

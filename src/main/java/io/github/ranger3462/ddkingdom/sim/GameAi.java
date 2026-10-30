@@ -43,6 +43,55 @@ final class GameAi {
         return m;
     }
 
+    private Rules.Guard guardRules() {
+        Rules.Guard guard = g.rules.ai.guard;
+        return guard != null && guard.enabled ? guard : null;
+    }
+
+    /**
+     * The threat a node keeps a reserve against: the biggest enemy garrison next to it and, with the guard on, a share
+     * of the biggest within {@link Rules.Guard#reach} links, which can take the empty land between and strike next.
+     */
+    double threat(Node n, String kid) {
+        double t = maxAdjThreat(n, kid);
+        Rules.Guard guard = guardRules();
+        if (guard == null || guard.reach < 2) {
+            return t;
+        }
+        Set<String> seen = new java.util.HashSet<>(Set.of(n.id));
+        List<String> frontier = List.of(n.id);
+        for (int d = 1; d <= guard.reach; d++) {
+            List<String> next = new ArrayList<>();
+            for (String id : frontier) {
+                for (String nb : g.adj.get(id)) {
+                    if (seen.add(nb)) {
+                        next.add(nb);
+                        Node o = g.N.get(nb);
+                        if (d >= 2 && o.owner != null && !o.owner.equals(kid)) {
+                            t = Math.max(t, o.garrison * guard.reachShare);
+                        }
+                    }
+                }
+            }
+            frontier = next;
+        }
+        return t;
+    }
+
+    /** With the guard on, the troops a node next to land it doesn't hold always keeps; 0 otherwise, and for capitals. */
+    double guard(Node n, String kid, Personality p) {
+        Rules.Guard guard = guardRules();
+        if (guard == null || n.type == NodeType.CAPITAL) {
+            return 0;
+        }
+        for (String id : g.adj.get(n.id)) {
+            if (!g.N.get(id).ownedBy(kid)) {
+                return Math.ceil(guard.min * p.guardMult);
+            }
+        }
+        return 0;
+    }
+
     /** Buys the growth buff when it wants a bigger army and can afford to hire with it. */
     void buff(String kid) {
         Kingdom k = g.K.get(kid);
@@ -51,15 +100,15 @@ final class GameAi {
             return;
         }
         double cost = g.buffCost();
-        if (cost <= 0 || k.wealth < cost) {
+        if (cost <= 0 || k.gold < cost) {
             return;
         }
         int army = g.army(kid);
         double desired = desiredArmy(kid, p);
-        double after = k.wealth - cost, hireWealth = g.rules.hire.wealth * g.rules.hire.maxBatches;
+        double after = k.gold - cost, hireGold = g.rules.hire.gold * g.rules.hire.maxBatches;
         Output inc = g.income(kid, false);
         Game.Upkeep up = g.upkeepFor(army + 20, kid);
-        if (desired - army >= 20 / p.mil && after >= hireWealth * 2 && inc.food() - up.food() >= 0 && k.res >= g.rules.hire.res * 4) {
+        if (desired - army >= 20 / p.mil && after >= hireGold * 2 && inc.food() - up.food() >= 0 && k.res >= g.rules.hire.res * 4) {
             g.buyBuff();
         }
     }
@@ -251,7 +300,7 @@ final class GameAi {
         // Raid the capital once next to it.
         if (g.adj.get(army.id).contains(ec.id)) {
             if (troops * str > g.defPower(ec) * p.raidMargin) {
-                return Action.raid(army.id, ec.id, troops, "wealth");
+                return Action.raid(army.id, ec.id, troops, "gold");
             }
             g.endCounter(kid, ec.name + " is too strong to raid");
             return null;
@@ -317,9 +366,9 @@ final class GameAi {
         int army = g.army(kid);
         Game.Upkeep up = g.upkeepFor(army, kid);
         // full() values long-term output; value() values stockpile changes, worth less the bigger the hoard already is.
-        double wf = ai.foodValue * sat(k.food, inc.food()), ww = sat(k.wealth, inc.wealth()), wr = ai.resValue * sat(k.res, inc.prod());
+        double wf = ai.foodValue * sat(k.food, inc.food()), ww = sat(k.gold, inc.gold()), wr = ai.resValue * sat(k.res, inc.prod());
         Values v = new Values(ai, wf, ww, wr);
-        double netFood = inc.food() - up.food(), netWealth = inc.wealth() - up.wealth();
+        double netFood = inc.food() - up.food(), netGold = inc.gold() - up.gold();
         boolean onlyCap = g.onlyCapital(kid);
         double sv = ai.soldierValue;
         List<Candidate> cands = new ArrayList<>();
@@ -328,17 +377,18 @@ final class GameAi {
                 cands.add(new Candidate(score * (1 + (g.rand.next() - 0.5) * ai.noise), action));
             }
         };
-        java.util.function.ToDoubleFunction<Node> reserve = n -> {
-            int t = maxAdjThreat(n, kid);
-            double r = t != 0 ? Math.ceil(Math.min(n.garrison, t * 0.6 * p.def * p.reserveMult)) : 0;
-            if (n.type == NodeType.CAPITAL) {
-                r = Math.max(r, Math.min(n.garrison, p.capitalReserve));
+        Map<Node, Double> reserves = new HashMap<>(); // garrisons don't change while it chooses
+        java.util.function.ToDoubleFunction<Node> reserve = n -> reserves.computeIfAbsent(n, x -> {
+            double t = threat(x, kid);
+            double r = t != 0 ? Math.ceil(Math.min(x.garrison, t * 0.6 * p.def * p.reserveMult)) : 0;
+            if (x.type == NodeType.CAPITAL) {
+                r = Math.max(r, Math.min(x.garrison, p.capitalReserve));
             }
-            if (g.garrisonCap(n) == Game.UNCAPPED) {
-                r = Math.max(r, Math.min(n.garrison, p.leaveBehind));
+            if (g.garrisonCap(x) == Game.UNCAPPED) {
+                r = Math.max(r, Math.min(x.garrison, p.leaveBehind));
             }
-            return r;
-        };
+            return Math.max(r, Math.min(x.garrison, guard(x, kid, p)));
+        });
         java.util.function.ToDoubleFunction<Node> importance = n -> n.type == NodeType.CAPITAL ? 1.5 : 1 + v.full(g.baseOutput(n)) / 600;
         boolean heroic = onlyCap;
         double hm = (heroic ? c.combat.heroicMult : 1) * str;
@@ -385,6 +435,9 @@ final class GameAi {
         }
         double expandMult = unsecured.isEmpty() ? 1 : 0.35;
         boolean attacks = p.burst == 0;
+        boolean dice = Combat.Dice.on(c.combat.dice);
+        // War-only kingdoms (the Orcs) take fights whatever the odds, unless they have a risk appetite to hold them to.
+        boolean anyFight = p.warOnly != 0 && !(dice && p.minWin > 0);
 
         // Captures and raids
         if (attacks) {
@@ -403,34 +456,60 @@ final class GameAi {
                     if (!allowTarget.allows(t, avail * hm, dp)) {
                         continue;
                     }
-                    if (t.type != NodeType.CAPITAL && (p.warOnly != 0 || avail * hm > dp * p.margin)) {
-                        Combat.Battle r = Combat.capture(c, troops, t.garrison, dp, heroic, str);
-                        int raised = (int) Math.floor((r.attackerLosses() + r.defenderLosses()) * k.raiseDead);
-                        add.accept(expandMult * p.aggr * (captureGain.applyAsDouble(t) - (r.attackerLosses() - raised) * sv + r.defenderLosses() * sv * 0.3),
-                                heroic ? Action.heroic(from.id, tid, troops) : Action.capture(from.id, tid, troops));
+                    if (t.type != NodeType.CAPITAL && (anyFight || avail * hm > dp * p.margin)) {
+                        Action capture = heroic ? Action.heroic(from.id, tid, troops) : Action.capture(from.id, tid, troops);
+                        if (dice) {
+                            // With dice, the land is only won some of the time; the losses are what each side expects to lose.
+                            Combat.Odds o = Combat.odds(c, false, troops, t.garrison, dp, heroic, str);
+                            double raised = (o.attackerLosses() + o.defenderLosses()) * k.raiseDead;
+                            add.accept(expandMult * p.aggr * (o.win() * captureGain.applyAsDouble(t) - (o.attackerLosses() - raised) * sv
+                                    + o.defenderLosses() * sv * 0.3), capture);
+                        } else {
+                            Combat.Battle r = Combat.capture(c, troops, t.garrison, dp, heroic, str);
+                            int raised = (int) Math.floor((r.attackerLosses() + r.defenderLosses()) * k.raiseDead);
+                            add.accept(expandMult * p.aggr * (captureGain.applyAsDouble(t) - (r.attackerLosses() - raised) * sv + r.defenderLosses() * sv * 0.3),
+                                    capture);
+                        }
                     }
                     double rm = p.raidMargin != 0 ? p.raidMargin : p.margin;
-                    if (p.raid > 0 && t.owner != null && (p.warOnly != 0 || avail * str > dp * rm)) {
-                        Combat.Battle r = Combat.raid(c, troops, t.garrison, dp, str);
+                    if (p.raid > 0 && t.owner != null && (anyFight || avail * str > dp * rm)) {
+                        // Loot and devastation come from the troops left after a win, which the dice make a chance.
+                        int lootTroops;
+                        double chance, attackerLosses, defenderLosses, raised;
+                        if (dice) {
+                            Combat.Odds o = Combat.odds(c, true, troops, t.garrison, dp, false, str);
+                            lootTroops = (int) Math.round(o.winSurvivors());
+                            chance = o.win();
+                            attackerLosses = o.attackerLosses();
+                            defenderLosses = o.defenderLosses();
+                            raised = (attackerLosses + defenderLosses) * k.raiseDead;
+                        } else {
+                            Combat.Battle r = Combat.raid(c, troops, t.garrison, dp, str);
+                            lootTroops = r.survivors();
+                            chance = 1;
+                            attackerLosses = r.attackerLosses();
+                            defenderLosses = r.defenderLosses();
+                            raised = (int) Math.floor((r.attackerLosses() + r.defenderLosses()) * k.raiseDead);
+                        }
                         String bestRes = null;
                         double bestVal = 0;
-                        for (String res : new String[] { "food", "wealth", "res" }) {
-                            Game.Steal s = g.raidSteal(t, res, r.survivors());
-                            double val = v.full(new Output("food".equals(s.key()) ? s.amount() : 0, "wealth".equals(s.key()) ? s.amount() : 0,
+                        for (String res : new String[] { "food", "gold", "res" }) {
+                            Game.Steal s = g.raidSteal(t, res, lootTroops);
+                            double val = v.full(new Output("food".equals(s.key()) ? s.amount() : 0, "gold".equals(s.key()) ? s.amount() : 0,
                                     "res".equals(s.key()) ? s.amount() : 0));
-                            if (res.equals("wealth")) {
-                                val *= p.wealthRaidBias;
+                            if (res.equals("gold")) {
+                                val *= p.goldRaidBias;
                             }
                             if (bestRes == null || val > bestVal) {
                                 bestRes = res;
                                 bestVal = val;
                             }
                         }
-                        double dev = Math.min(c.raid.devMax, c.raid.devPer10 * Math.floor(r.survivors() / 10.0));
+                        double dev = Math.min(c.raid.devMax, c.raid.devPer10 * Math.floor(lootTroops / 10.0));
                         double harm = v.full(g.baseOutput(t)) * dev * 4 * 0.3;
-                        int raised = (int) Math.floor((r.attackerLosses() + r.defenderLosses()) * k.raiseDead);
-                        double score = p.raid * (bestVal + r.defenderLosses() * sv * 0.7 + harm - (r.attackerLosses() - raised) * sv);
-                        if (bestVal > 0 || r.defenderLosses() > 0) {
+                        double loot = chance * bestVal;
+                        double score = p.raid * (loot + defenderLosses * sv * 0.7 + chance * harm - (attackerLosses - raised) * sv);
+                        if (loot > 0 || defenderLosses > 0) {
                             add.accept(score, Action.raid(from.id, tid, troops, bestRes));
                         }
                     }
@@ -499,8 +578,8 @@ final class GameAi {
         List<Node> locs = g.hireLocations(kid);
         if (!locs.isEmpty()) {
             for (int b = c.hire.maxBatches; b >= 1; b--) {
-                double w = b * c.hire.wealth, rs = b * c.hire.res;
-                if (k.wealth < w || k.res < rs) {
+                double w = b * c.hire.gold, rs = b * c.hire.res;
+                if (k.gold < w || k.res < rs) {
                     continue;
                 }
                 int soldiers = (int) Math.floor(b * c.hire.batchSize * gm);
@@ -508,7 +587,7 @@ final class GameAi {
                     continue;
                 }
                 Game.Upkeep nu = g.upkeepFor(army + soldiers, kid);
-                double nf = inc.food() - nu.food(), nw = inc.wealth() - nu.wealth();
+                double nf = inc.food() - nu.food(), nw = inc.gold() - nu.gold();
                 Node loc = null;
                 if (blocked != null) {
                     for (Node n : locs) {
@@ -523,7 +602,7 @@ final class GameAi {
                 if (nf < 0 && !(k.goblinRule && progress >= 1)) {
                     continue;
                 }
-                if (nw < 0 && k.wealth - w < -nw * 4) {
+                if (nw < 0 && k.gold - w < -nw * 4) {
                     continue;
                 }
                 if (loc == null && p.burst != 0 && cap != null && locs.contains(cap)) {
@@ -690,8 +769,8 @@ final class GameAi {
                 continue;
             }
             Game.Cost cost = g.upgradeCost(n);
-            double foodBuf = Math.max(0, -netFood) * 3, wealthBuf = Math.max(0, -netWealth) * 3;
-            if (k.food < cost.food() + foodBuf || k.wealth < cost.wealth() + wealthBuf || k.res < cost.res()) {
+            double foodBuf = Math.max(0, -netFood) * 3, goldBuf = Math.max(0, -netGold) * 3;
+            if (k.food < cost.food() + foodBuf || k.gold < cost.gold() + goldBuf || k.res < cost.res()) {
                 continue;
             }
             double eff = Math.max(0, horizon - cost.turns());
@@ -706,15 +785,15 @@ final class GameAi {
             if (n.type == NodeType.OUTPOST) {
                 gain += maxAdjThreat(n, kid) > 0 ? 150 : 20;
             }
-            add.accept(p.econ * (gain - v.value(new Output(cost.food(), cost.wealth(), cost.res()))), Action.upgrade(n.id));
+            add.accept(p.econ * (gain - v.value(new Output(cost.food(), cost.gold(), cost.res()))), Action.upgrade(n.id));
         }
 
-        // Import food: worth it when food, not wealth, is what stops the army from growing.
+        // Import food: worth it when food, not gold, is what stops the army from growing.
         Rules.ImportFood ic = c.importFood;
         if (ic.enabled) {
             for (int food = ic.maxPerAction; food >= 1; food--) {
-                double cost = food * ic.duration * ic.wealthPerFood;
-                if (k.wealth < cost + Math.max(0, -netWealth) * 3) {
+                double cost = food * ic.duration * ic.goldPerFood;
+                if (k.gold < cost + Math.max(0, -netGold) * 3) {
                     continue;
                 }
                 double room = Math.max(0, desired - army) - Math.max(0, netFood) * c.hire.batchSize;
@@ -725,10 +804,12 @@ final class GameAi {
             }
         }
 
-        // Produce Resources is always there.
-        Output nodeInc = g.income(kid, true);
-        double pm = c.produce.payout;
-        add.accept(p.econ * v.value(new Output(Math.max(0, nodeInc.food()) * pm, nodeInc.wealth() * pm, nodeInc.prod() * pm)), Action.of(Action.Type.PRODUCE));
+        // Produce Resources is always there, unless it's on its cooldown.
+        if (g.canProduce(kid)) {
+            Output nodeInc = g.income(kid, true);
+            double pm = c.produce.payout;
+            add.accept(p.econ * v.value(new Output(Math.max(0, nodeInc.food()) * pm, nodeInc.gold() * pm, nodeInc.prod() * pm)), Action.of(Action.Type.PRODUCE));
+        }
 
         if (p.warOnly != 0) {
             List<Candidate> war = new ArrayList<>();
@@ -738,11 +819,11 @@ final class GameAi {
                     war.add(cand);
                 }
             }
-            if (war.isEmpty()) {
-                return Action.of(Action.Type.PASS);
+            if (!war.isEmpty()) {
+                cands.clear();
+                cands.addAll(war);
             }
-            cands.clear();
-            cands.addAll(war);
+            // With no fight to take, it uses the action on the best of everything else: every action is used.
         }
         cands.sort((a, b) -> sign(b.score() - a.score()));
         // With only restricted slots left, pick the best action that fits them.
@@ -752,9 +833,9 @@ final class GameAi {
                     return cand.action();
                 }
             }
-            return Action.of(Action.Type.PRODUCE);
+            return g.fallback(kid);
         }
-        return cands.get(0).action();
+        return cands.isEmpty() ? g.fallback(kid) : cands.get(0).action();
     }
 
     @FunctionalInterface
@@ -775,7 +856,7 @@ final class GameAi {
     private double needGarrison(Node n, String kid, Personality p, double str) {
         int threat = maxAdjThreat(n, kid);
         if (threat == 0) {
-            return n.type == NodeType.CAPITAL ? p.capitalReserve : 0;
+            return Math.max(n.type == NodeType.CAPITAL ? p.capitalReserve : 0, guard(n, kid, p));
         }
         double fd = g.finalDefense(n);
         return Math.max(0, Math.ceil((threat * 1.3 - fd) / (str * (1 + fd / g.rules.combat.defDivisor))));
@@ -793,11 +874,11 @@ final class GameAi {
     /** What output is worth: {@link #full} at face value, {@link #value} as a change to this kingdom's stockpiles. */
     private record Values(Rules.Ai ai, double wf, double ww, double wr) {
         double full(Output o) {
-            return o.food() * ai.foodValue + o.wealth() + o.prod() * ai.resValue;
+            return o.food() * ai.foodValue + o.gold() + o.prod() * ai.resValue;
         }
 
         double value(Output o) {
-            return o.food() * wf + o.wealth() * ww + o.prod() * wr;
+            return o.food() * wf + o.gold() * ww + o.prod() * wr;
         }
     }
 }
