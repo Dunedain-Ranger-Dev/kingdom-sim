@@ -28,6 +28,20 @@ class GameTest {
     }
 
     @Test
+    void goldDecaysAtTheEndOfEachTurn() {
+        com.google.gson.JsonObject over = new com.google.gson.JsonObject();
+        Rules.override(over, "goldDecay.share", new com.google.gson.JsonPrimitive(0.2));
+        Rules rules = Rules.load(over);
+        Game game = new Game(SimMap.named("large_ruins"), rules, 1, 40, true);
+        game.step();
+        Kingdom first = game.kingdoms.get(0);
+        // The capital produced 300 gold, so 60 went at the end of the turn (if the stockpile had that much).
+        assertEquals(Math.min(60, first.gold + first.stats.goldDecayed), first.stats.goldDecayed, 0.001);
+        SimMain.play(SimMap.named("large_ruins"), rules, 1, 40).kingdoms
+                .forEach(k -> assertTrue(k.gold >= 0 && k.stats.goldDecayed > 0, k.id));
+    }
+
+    @Test
     void everyActionIsUsed() {
         Game game = SimMain.play(SimMap.named("large_ruins"), Rules.defaults(), 1, 40);
         for (Kingdom k : game.kingdoms) {

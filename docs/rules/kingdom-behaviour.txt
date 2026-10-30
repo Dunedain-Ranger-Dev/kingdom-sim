@@ -93,6 +93,9 @@ Kingdoms:
 			- Attacks any Orc or Goblin node it shares a border with, aiming to knock down the overall tiers of those factions rather than to hold land
 				- Prefers high-tier targets, and only attacks when it is clearly stronger
 				- Does not rebuild or upgrade land it captures, and brings the surviving troops back to the capital afterwards
+	- Army size: every faction hires whenever it can pay for the troops and its food income stays at or above 0 (see kingdom-stats), so food and gold decide how big its army gets
+		- Optional rule, off by default: each faction instead aims for a target army, its army ratio times the enemy troops next to its land and never less than its minimum, and stops hiring once it has it
+			- Orcs 1.5x (at least 45), Goblins 1.3x (40), Hearthbound 1.2x (35), Undead 1.2x (35), Kobolds 1.2x (30), Dwarves 1.2x (30), Elementals 1x (30)
 	- How sure each faction wants to be of winning before it attacks (battles roll dice, see kingdom-stats):
 		- Undead 35%, Goblins 50% (60% for raids), Elementals 65%, Hearthbound 70% (75% for raids), Kobolds 85% (90% for raids), Dwarves 90%, Orcs 20%
 	- Every faction leaves at least 5 troops on any node that borders land it doesn't hold when it attacks out of it or moves troops away, so its land isn't left empty for anyone to walk into

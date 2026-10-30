@@ -113,7 +113,15 @@ final class GameAi {
         }
     }
 
+    /**
+     * The army the kingdom wants: its personality's armyRatio times the enemy troops next to its land, and at least
+     * minArmy. With the army target off (Rules.ArmyTarget), there's no limit: food and gold decide.
+     */
     double desiredArmy(String kid, Personality p) {
+        Rules.ArmyTarget target = g.rules.ai.armyTarget;
+        if (target != null && !target.enabled) {
+            return Double.POSITIVE_INFINITY;
+        }
         int enemy = 0;
         Set<String> seen = new java.util.HashSet<>();
         for (Node n : g.ownedNodes(kid)) {
@@ -578,8 +586,9 @@ final class GameAi {
         List<Node> locs = g.hireLocations(kid);
         if (!locs.isEmpty()) {
             for (int b = c.hire.maxBatches; b >= 1; b--) {
-                double w = b * c.hire.gold, rs = b * c.hire.res;
-                if (k.gold < w || k.res < rs) {
+                // The gold it costs, with gold standing in for missing resources if the rules allow.
+                double w = g.goldToPay(k, 0, b * c.hire.gold, b * c.hire.res);
+                if (w < 0) {
                     continue;
                 }
                 int soldiers = (int) Math.floor(b * c.hire.batchSize * gm);
@@ -770,7 +779,7 @@ final class GameAi {
             }
             Game.Cost cost = g.upgradeCost(n);
             double foodBuf = Math.max(0, -netFood) * 3, goldBuf = Math.max(0, -netGold) * 3;
-            if (k.food < cost.food() + foodBuf || k.gold < cost.gold() + goldBuf || k.res < cost.res()) {
+            if (g.goldToPay(k, cost.food() + foodBuf, cost.gold() + goldBuf, cost.res()) < 0) {
                 continue;
             }
             double eff = Math.max(0, horizon - cost.turns());
@@ -785,7 +794,9 @@ final class GameAi {
             if (n.type == NodeType.OUTPOST) {
                 gain += maxAdjThreat(n, kid) > 0 ? 150 : 20;
             }
-            add.accept(p.econ * (gain - v.value(new Output(cost.food(), cost.gold(), cost.res()))), Action.upgrade(n.id));
+            // What it spends: the food and resources it has, and gold for the rest.
+            Output spent = new Output(Math.min(cost.food(), k.food), g.goldToPay(k, cost.food(), cost.gold(), cost.res()), Math.min(cost.res(), k.res));
+            add.accept(p.econ * (gain - v.value(spent)), Action.upgrade(n.id));
         }
 
         // Import food: worth it when food, not gold, is what stops the army from growing.
@@ -796,12 +807,20 @@ final class GameAi {
                 if (k.gold < cost + Math.max(0, -netGold) * 3) {
                     continue;
                 }
-                double room = Math.max(0, desired - army) - Math.max(0, netFood) * c.hire.batchSize;
+                // Troops it wants beyond what its food income feeds: with no army target, the troops its gold could hire.
+                double wanted = desired == Double.POSITIVE_INFINITY ? Math.floor(k.gold / c.hire.gold) * c.hire.batchSize * gm : Math.max(0, desired - army);
+                double room = wanted - Math.max(0, netFood) * c.hire.batchSize;
                 double enabled = Math.min(food * c.hire.batchSize, Math.max(0, room));
                 double relief = netFood < 0 ? Math.min(food, -netFood) * ai.foodValue * ic.duration : 0;
                 add.accept(p.mil * enabled * sv * 1.5 + relief - cost * ww, Action.importFood(food));
                 break;
             }
+        }
+
+        // Train troops: a permanent strength bonus, worth that many more soldiers for each round still to play (a fifth each).
+        double trainCost = g.trainCost(k);
+        if (trainCost >= 0 && k.gold >= trainCost + Math.max(0, -netGold) * 3) {
+            add.accept(p.mil * army * g.rules.train.step * sv * horizon / 5 - trainCost * ww, Action.of(Action.Type.TRAIN));
         }
 
         // Produce Resources is always there, unless it's on its cooldown.

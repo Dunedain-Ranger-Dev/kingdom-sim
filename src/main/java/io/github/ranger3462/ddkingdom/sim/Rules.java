@@ -51,6 +51,12 @@ public final class Rules {
     public ReinforceBorder reinforceBorder;
     public double repairCost;
     public GoldTax goldTax;
+    /** Gold lost at the end of every kingdom's turn: {@code share} of the gold its nodes produced that turn, down to 0 at most. */
+    public GoldDecay goldDecay;
+    /** Gold standing in for food or resources a kingdom lacks when it pays for troops or upgrades (0: it can't). */
+    public GoldWildcard goldWildcard;
+    /** The Train troops action: gold for a permanent troop strength bonus (null or not enabled: no such action). */
+    public Train train;
     /** A node that is a ruin once captured starts a free rebuild to Tier 1 that costs no action and finishes next turn. */
     public boolean freeRebuildOnCapture;
     public Produce produce;
@@ -137,6 +143,25 @@ public final class Rules {
         public boolean neutralIsHostile;
     }
 
+    /** Gold paid for each missing food ({@code food}) or resource ({@code res}); 0 for none. */
+    /**
+     * Train troops: each use adds {@code step} to the kingdom's troop strength, attacking and defending, for {@code gold}
+     * times the number of times it has trained (1000, then 2000, ...), at most {@code max} times.
+     */
+    public static final class Train {
+        public boolean enabled;
+        public double gold, step;
+        public int max;
+    }
+
+    public static final class GoldWildcard {
+        public double food, res;
+    }
+
+    public static final class GoldDecay {
+        public double share;
+    }
+
     public static final class GoldTax {
         public double rate, free;
     }
@@ -163,6 +188,12 @@ public final class Rules {
         public double noise, horizon, foodValue, resValue, soldierValue;
         /** By name; a kingdom's {@code ai} picks one, and missing fields fall back to {@link Personality#DEFAULTS}. */
         public Map<String, JsonObject> personalities = new LinkedHashMap<>();
+        /**
+         * Whether the AI aims for a target army size (each personality's armyRatio and minArmy) and stops hiring once it
+         * has it. Off (or null): it hires whenever it can pay and its food income stays at or above 0, so food and gold
+         * set how big its army gets, as the rules say.
+         */
+        public ArmyTarget armyTarget;
         /** What the AI keeps behind on the nodes it holds (null: nothing beyond its reserve). */
         public Guard guard;
     }
@@ -172,6 +203,10 @@ public final class Rules {
      * at least {@code min} (times its personality's {@code guardMult}), and the threat it keeps a reserve against counts
      * enemy garrisons up to {@code reach} links away, at {@code reachShare} of their size past the first link.
      */
+    public static final class ArmyTarget {
+        public boolean enabled;
+    }
+
     public static final class Guard {
         public boolean enabled;
         public int min, reach;

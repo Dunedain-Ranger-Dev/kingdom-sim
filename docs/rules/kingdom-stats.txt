@@ -137,6 +137,8 @@ Kingdom Stats:
 		- Turn order is as follows:
 			- Nodes produce resources and contribute to nation stockpile
 			- Upkeep is subtracted from nation stockpile
+				- The kingdom also loses 10% of any gold it holds above 3,000, so unspent gold wears away
+					- EX: A kingdom holding 5,000 gold after upkeep loses 200 of it
 			- Any node upgrades complete
 			- Kingdom receives 2 actions, plus an additional action for every Castle at T3
 				- Every action must be used; a kingdom can't pass
@@ -177,7 +179,7 @@ Kingdom Stats:
 						- Unsuccessful raids cause the attacker to take damage as though retreating from a failed Capture Node action
 				- Raids do not reduce the tier of a node
 				- Successful raids inflict .05 devastation for every 10 surviving attackers, up to a maximum of .25
-			- Hire soldiers: The kingdom may spend resources to recruit up to 20 soldiers (2 batches), this number is calculated before growth multipliers
+			- Hire soldiers: The kingdom may spend resources to recruit up to 40 soldiers (4 batches), this number is calculated before growth multipliers
 				- Troops cost 300 Gold and 50 Resources for every 10 soldiers, paid before any multipliers are applied
 				- These troops are placed as garrison in the nation capital, or one of their linked town and castle nodes
 				- Troops cannot be recruited if there is no path from that node to the capital of the recruiting faction (troops can be cut off)

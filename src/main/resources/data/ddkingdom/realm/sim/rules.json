@@ -70,7 +70,7 @@
   },
   "hire": {
     "batchSize": 10,
-    "maxBatches": 2,
+    "maxBatches": 4,
     "gold": 300,
     "res": 50
   },
@@ -120,8 +120,21 @@
     "neutralIsHostile": false
   },
   "repairCost": 100,
+  "train": {
+    "enabled": false,
+    "gold": 1000,
+    "step": 0.1,
+    "max": 5
+  },
+  "goldWildcard": {
+    "food": 0,
+    "res": 0
+  },
+  "goldDecay": {
+    "share": 0
+  },
   "goldTax": {
-    "rate": 0,
+    "rate": 0.1,
     "free": 3000
   },
   "freeRebuildOnCapture": true,
@@ -148,6 +161,9 @@
     "foodValue": 50,
     "resValue": 3,
     "soldierValue": 40,
+    "armyTarget": {
+      "enabled": false
+    },
     "guard": {
       "enabled": true,
       "min": 5,
@@ -156,7 +172,7 @@
     },
     "personalities": {
       "balanced": {
-        "aggr": 1,
+        "aggr": 1.25,
         "raid": 0.8,
         "def": 1,
         "econ": 1,
@@ -167,7 +183,7 @@
         "minWin": 0.7
       },
       "aggressive": {
-        "aggr": 1.6,
+        "aggr": 2,
         "raid": 1.1,
         "def": 0.7,
         "econ": 0.8,
@@ -178,7 +194,7 @@
         "minWin": 0.55
       },
       "defensive": {
-        "aggr": 0.5,
+        "aggr": 0.625,
         "raid": 0.5,
         "def": 1.6,
         "econ": 1.1,
@@ -189,7 +205,7 @@
         "minWin": 0.85
       },
       "economic": {
-        "aggr": 0.7,
+        "aggr": 0.875,
         "raid": 0.6,
         "def": 0.9,
         "econ": 1.5,
@@ -200,7 +216,7 @@
         "minWin": 0.75
       },
       "goblin": {
-        "aggr": 1.6,
+        "aggr": 2,
         "raid": 0.9,
         "def": 1.1,
         "econ": 0.8,
@@ -217,7 +233,7 @@
         "raidMinWin": 0.6
       },
       "orc": {
-        "aggr": 1.8,
+        "aggr": 2.25,
         "raid": 1,
         "def": 0.4,
         "econ": 0.7,
@@ -235,7 +251,7 @@
         "guardMult": 0.3
       },
       "kobold": {
-        "aggr": 0.9,
+        "aggr": 1.125,
         "raid": 3,
         "def": 1.4,
         "econ": 1.1,
@@ -252,7 +268,7 @@
         "raidMinWin": 0.9
       },
       "elemental": {
-        "aggr": 1.2,
+        "aggr": 1.5,
         "raid": 0,
         "def": 1,
         "econ": 1,
@@ -269,7 +285,7 @@
         "minWin": 0.65
       },
       "hearthbound": {
-        "aggr": 1.3,
+        "aggr": 1.625,
         "raid": 0.8,
         "def": 1.3,
         "econ": 1,
@@ -288,7 +304,7 @@
         "raidMinWin": 0.75
       },
       "dwarf": {
-        "aggr": 1.3,
+        "aggr": 1.625,
         "raid": 0,
         "def": 1.2,
         "econ": 1,
@@ -302,7 +318,7 @@
         "minWin": 0.9
       },
       "undead": {
-        "aggr": 1.5,
+        "aggr": 1.875,
         "raid": 1.4,
         "def": 0.9,
         "econ": 0.8,

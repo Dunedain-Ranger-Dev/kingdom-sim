@@ -270,9 +270,16 @@ public final class Game {
         return Combat.defenderPower(rules, n.garrison, finalDefense(n, baseDefense), defStrength(n));
     }
 
+    /** Troop strength: the kingdom's own, plus what it has trained. */
     public double strength(String kid) {
         Kingdom k = kid == null ? null : K.get(kid);
-        return k == null ? 1 : k.strength;
+        return k == null ? 1 : k.strength + (k.trained > 0 ? k.trained * rules.train.step : 0);
+    }
+
+    /** What the kingdom's next Train troops costs, or -1 if it can't train (off, or trained the most times). */
+    public double trainCost(Kingdom k) {
+        Rules.Train t = rules.train;
+        return t == null || !t.enabled || k.trained >= t.max ? -1 : t.gold * (k.trained + 1);
     }
 
     /** Strength when defending: defStrength over strength, times homeDefStrength on the owner's own home nodes. */
@@ -565,6 +572,7 @@ public final class Game {
     }
 
     void endTurn() {
+        decayGold();
         cur = null;
         turnPos++;
         if (turnPos >= order.size()) {
@@ -588,6 +596,25 @@ public final class Game {
             } else {
                 order = ids;
             }
+        }
+    }
+
+    /**
+     * The end of a kingdom's turn: it loses a share of the gold its nodes produced this turn (Rules.GoldDecay), so
+     * gold that isn't spent wears away. Its stockpile never drops below 0.
+     */
+    private void decayGold() {
+        Rules.GoldDecay decay = rules.goldDecay;
+        if (cur == null || decay == null || decay.share <= 0) {
+            return;
+        }
+        Kingdom k = K.get(cur.kid);
+        double before = k.gold;
+        k.gold = r2(Math.max(0, k.gold - cur.grossGold * decay.share));
+        k.stats.goldDecayed += before - k.gold;
+        if (!quiet && before > k.gold) {
+            emit(cur.kid, "phase", "End of turn: " + num(r2(before - k.gold)) + " gold lost (" + num(decay.share * 100) + "% of the " + num(r2(cur.grossGold))
+                    + " produced this turn) → " + num(k.gold) + " gold");
         }
     }
 
@@ -660,6 +687,7 @@ public final class Game {
             case FORTIFY -> fortify(kid, a);
             case UPGRADE -> upgrade(kid, a);
             case REPAIR -> repair(kid, a);
+            case TRAIN -> train(kid);
         }
         k.stats.actions.merge(a.type().id, 1, Integer::sum);
         if (fitsExtra && cur.extraLeft > 0) {
@@ -1096,18 +1124,61 @@ public final class Game {
             throw new RuleException(node.name + " has no friendly path to the capital; troops are cut off.");
         }
         double w = b * c.gold, rs = b * c.res;
-        if (k.gold < w || k.res < rs) {
+        double paid = goldToPay(k, 0, w, rs);
+        if (paid < 0) {
             throw new RuleException("Hiring " + b + " batch(es) costs " + num(w) + " gold and " + num(rs) + " resources.");
         }
         double gm = growthMult(kid);
         int soldiers = (int) Math.floor(b * c.batchSize * gm);
-        k.gold = r2(k.gold - w);
-        k.res = r2(k.res - rs);
+        pay(k, 0, w, rs);
         node.garrison += soldiers;
         k.stats.hired += soldiers;
         if (!quiet) {
-            emit(kid, "action", "Hire: " + b + " batch(es) for " + num(w) + " gold + " + num(rs) + " resources × growth " + num(gm) + " = " + soldiers
-                    + " soldiers at " + node.name + ".");
+            emit(kid, "action", "Hire: " + b + " batch(es) for " + num(w) + " gold + " + num(rs) + " resources" + wildcardNote(paid - w) + " × growth " + num(gm)
+                    + " = " + soldiers + " soldiers at " + node.name + ".");
+        }
+    }
+
+    /**
+     * The gold it takes {@code k} to pay {@code food}, {@code gold} and {@code res}, with gold standing in for any food or
+     * resources it lacks at the wildcard's rate (Rules.GoldWildcard); -1 if it can't pay.
+     */
+    public double goldToPay(Kingdom k, double food, double gold, double res) {
+        Rules.GoldWildcard w = rules.goldWildcard;
+        double shortFood = Math.max(0, food - k.food), shortRes = Math.max(0, res - k.res);
+        if (shortFood > 0 && (w == null || w.food <= 0) || shortRes > 0 && (w == null || w.res <= 0)) {
+            return -1;
+        }
+        double total = gold + (shortFood > 0 ? shortFood * w.food : 0) + (shortRes > 0 ? shortRes * w.res : 0);
+        return total <= k.gold ? total : -1;
+    }
+
+    /** Pays a cost {@link #goldToPay} says the kingdom can: what it has of the food and resources, and gold for the rest. */
+    private void pay(Kingdom k, double food, double gold, double res) {
+        double total = goldToPay(k, food, gold, res);
+        double f = Math.min(food, k.food), r = Math.min(res, k.res);
+        k.food = r2(k.food - f);
+        k.gold = r2(k.gold - total);
+        k.res = r2(k.res - r);
+    }
+
+    private static String wildcardNote(double extraGold) {
+        return extraGold > 0 ? " (" + num(r2(extraGold)) + " more gold in place of what was missing)" : "";
+    }
+
+    private void train(String kid) {
+        Kingdom k = K.get(kid);
+        double cost = trainCost(k);
+        if (cost < 0) {
+            throw new RuleException("Troops can't be trained any further.");
+        }
+        if (k.gold < cost) {
+            throw new RuleException("Training costs " + num(cost) + " gold.");
+        }
+        k.gold = r2(k.gold - cost);
+        k.trained++;
+        if (!quiet) {
+            emit(kid, "action", "Train troops for " + num(cost) + " gold: troop strength now ×" + num(r2(strength(kid))) + ".");
         }
     }
 
@@ -1197,17 +1268,17 @@ public final class Game {
             throw new RuleException(n.name + " is already at max tier.");
         }
         Cost cost = upgradeCost(n);
-        if (k.food < cost.food() || k.gold < cost.gold() || k.res < cost.res()) {
+        double paid = goldToPay(k, cost.food(), cost.gold(), cost.res());
+        if (paid < 0) {
             throw new RuleException("Upgrading to T" + cost.newTier() + " costs " + num(cost.food()) + " food, " + num(cost.gold()) + " gold, "
                     + num(cost.res()) + " resources.");
         }
-        k.food = r2(k.food - cost.food());
-        k.gold = r2(k.gold - cost.gold());
-        k.res = r2(k.res - cost.res());
+        pay(k, cost.food(), cost.gold(), cost.res());
         n.upgrade = new Node.Upgrade(cost.newTier(), cost.turns(), false);
         if (!quiet) {
             emit(kid, "action", (n.tier == 0 ? "Rebuild" : "Upgrade") + " " + n.name + " to T" + cost.newTier() + " (" + n.type.tierName(cost.newTier()) + "): "
-                    + num(cost.food()) + " food, " + num(cost.gold()) + " gold, " + num(cost.res()) + " resources, " + cost.turns() + " turns.");
+                    + num(cost.food()) + " food, " + num(cost.gold()) + " gold, " + num(cost.res()) + " resources" + wildcardNote(paid - cost.gold()) + ", "
+                    + cost.turns() + " turns.");
         }
     }
 

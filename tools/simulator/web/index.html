@@ -531,7 +531,7 @@
       }
       return '';
     }).join('');
-    const actionOpts = Object.keys(S.ACTION_LABELS).filter((a) => (a !== 'heroic' || game.onlyCapital(kid)) && (a !== 'import_food' || game.cfg.importFood.enabled) && (a !== 'produce' || game.canProduce(kid))).map((a) => `<option value="${a}" ${f.type === a ? 'selected' : ''}>${S.ACTION_LABELS[a]}</option>`).join('');
+    const actionOpts = Object.keys(S.ACTION_LABELS).filter((a) => (a !== 'heroic' || game.onlyCapital(kid)) && (a !== 'import_food' || game.cfg.importFood.enabled) && (a !== 'produce' || game.canProduce(kid)) && (a !== 'train' || game.trainCost(game.K[kid]) >= 0)).map((a) => `<option value="${a}" ${f.type === a ? 'selected' : ''}>${S.ACTION_LABELS[a]}</option>`).join('');
     box.innerHTML = `<div class="panel manual stack">
       <div><div class="label">Your turn · ${game.cur.actionsLeft} of ${game.cur.actionsTotal} action${game.cur.actionsTotal > 1 ? 's' : ''} left</div><h2>${esc(k.name)}</h2></div>
       <div class="form-row"><label class="field"><span>Action</span><select id="mType">${actionOpts}</select></label>${fieldHtml}</div>
@@ -664,7 +664,7 @@
     }
     chunk();
   }
-  const ACTION_COLORS = { produce: '#8A9A5B', upgrade: '#5B8A9A', hire: '#9A5B7E', capture: '#B13A2D', raid: '#D08A3A', heroic: '#7A2E9A', fortify: '#4F6B8F', reinforce_border: '#6E7F99', send: '#9A8F5B', repair: '#5B9A75', import_food: '#C2A23A' };
+  const ACTION_COLORS = { produce: '#8A9A5B', upgrade: '#5B8A9A', hire: '#9A5B7E', capture: '#B13A2D', raid: '#D08A3A', heroic: '#7A2E9A', fortify: '#4F6B8F', reinforce_border: '#6E7F99', send: '#9A8F5B', repair: '#5B9A75', import_food: '#C2A23A', train: '#3A7D8C' };
   function renderBatch(agg, sc, games, rounds, ms) {
     const ks = sc.kingdoms;
     const per = (v) => fmt(v / games);
@@ -749,12 +749,16 @@
     'combat.dice.mode': 'none, scaled (each side\'s power × 1 + (roll − middle) × swing) or flat (roll × flat added to power)',
     'combat.dice.sides': 'sides on each die', 'combat.dice.swing': 'scaled: power change per point from the middle (0.02 on a d20 = ×0.81 to ×1.19)', 'combat.dice.flat': 'flat: power added per point rolled',
     'produce.cooldown': 'turns before Produce resources can be used again (0 = any time)',
+    'goldDecay.share': 'share of the gold its nodes produced that turn a kingdom loses at the end of its turn (0 = off)',
+    'ai.armyTarget.enabled': 'the AI aims for a target army (army ratio and min army in the personality table) and stops hiring there; off: food and gold decide',
+    'train.enabled': 'allow the Train troops action', 'train.gold': 'gold for the first training; each one after costs this × how many times it has trained', 'train.step': 'troop strength added each time', 'train.max': 'most times a kingdom can train',
+    'goldWildcard.food': 'gold paid for each missing food when hiring or upgrading (0 = not allowed)', 'goldWildcard.res': 'gold paid for each missing resource when hiring or upgrading (0 = not allowed)',
     'ai.guard.enabled': 'the AI leaves troops on nodes that border land it doesn\'t hold', 'ai.guard.min': 'troops left on each such node (× the personality\'s guard mult)',
     'ai.guard.reach': 'links away the AI looks for enemy armies when deciding what to keep back', 'ai.guard.reachShare': 'share of a farther army\'s size it counts',
   };
   const P_HELP = {
     aggr: 'weight on capturing', raid: 'weight on raiding (0 = never)', def: 'weight on defending', econ: 'weight on building and producing', mil: 'weight on hiring',
-    margin: 'attack only when power > defender × this', raidMargin: 'same, for raids (0 = use margin)', armyRatio: 'army wanted vs enemy troops on borders', minArmy: 'smallest army it settles for',
+    margin: 'attack only when power > defender × this', raidMargin: 'same, for raids (0 = use margin)', armyRatio: 'with Army target on: army wanted vs enemy troops on borders', minArmy: 'with Army target on: smallest army it settles for',
     targets: 'any, avoidMonsters (only weakened monster nodes), playerOnly, home (only its own home nodes), raze (home nodes plus the kingdom\'s foes)', reserveMult: 'how much of a threatened garrison stays home', capitalReserve: 'troops always kept in the capital',
     retake: 'value × on nodes it lost', secureNew: '1 = fortify new conquests before expanding again', fortifyAttacked: 'defense focus × on nodes attacked in the last 2 rounds',
     homeRadius: 'steps from the capital counted as home (0 = off)', homeBias: 'priority × for capturing and fortifying home', upgradeAway: '0 = never upgrade land outside home past T1',
@@ -799,7 +803,7 @@
     }
     h = `<fieldset><legend>General</legend>${simple.map(([key, v]) => `<div class="cfg-row"><span>${humanize(key)}${HELP[key] ? `<br><span class="help">${HELP[key]}</span>` : ''}</span>${cfgInput(key, v)}</div>`).join('')}</fieldset>` + h;
     const ai = c.ai;
-    h += `<fieldset><legend>AI</legend>${['noise', 'horizon', 'soldierValue', 'foodValue', 'resValue'].map((f) => cfgRow('ai.' + f, f, ai[f])).join('')}${ai.guard ? cfgRows('ai.guard', ai.guard, 'Guard ') : ''}</fieldset>`;
+    h += `<fieldset><legend>AI</legend>${['noise', 'horizon', 'soldierValue', 'foodValue', 'resValue'].map((f) => cfgRow('ai.' + f, f, ai[f])).join('')}${ai.armyTarget ? cfgRows('ai.armyTarget', ai.armyTarget, 'Army target ') : ''}${ai.guard ? cfgRows('ai.guard', ai.guard, 'Guard ') : ''}</fieldset>`;
     const names = Object.keys(ai.personalities), pf = Object.keys(S.PERSONALITY_DEFAULTS);
     h += `<fieldset style="grid-column:1/-1"><legend>AI personalities and faction behaviours</legend><div class="table-wrap"><table><tr><th>Setting</th>${names.map((n) => `<th>${esc(n)}</th>`).join('')}</tr>${pf.map((f) => `<tr><td>${humanize(f)}<br><span class="help muted">${esc(P_HELP[f] || '')}</span></td>${names.map((n) => { const p = ai.personalities[n]; return `<td>${cfgInput(`ai.personalities.${n}.${f}`, p[f] != null ? p[f] : S.PERSONALITY_DEFAULTS[f])}</td>`; }).join('')}</tr>`).join('')}</table></div></fieldset>`;
     $('cfg').innerHTML = h;
@@ -846,7 +850,8 @@
 
   const NOTES = [
     'The rules and maps are the mod\'s own data files (data/ddkingdom/realm/sim in the kingdom-sim repository), the same ones its Java simulator plays by: a seed plays the same game in both. Changes made on this tab stay in your browser.',
-    'Turn order inside a round rotates each round (configurable). Each kingdom: morale recovers +1 on its nodes, production, optional growth buff, upkeep, upgrades tick, then actions: 2 per turn (Base actions under General), plus 1 for each Tier 3 castle. Every action must be used; there is no passing.',
+    'Turn order inside a round rotates each round (configurable). Each kingdom: morale recovers +1 on its nodes, production, optional growth buff, upkeep, upgrades tick, then actions: 2 per turn (Base actions under General), plus 1 for each Tier 3 castle. Every action must be used; there is no passing. At upkeep a kingdom also loses 10% of any gold above 3,000 (Gold tax).',
+    'Army size: the AI hires whenever it can pay and its food income stays at or above 0, so food and gold set how big armies get. Turning on Army target under AI makes each faction aim for its army ratio times the enemy troops next to its land, at least its min army, and stop hiring there.',
     'Battles roll dice: each side rolls a d20, and its power is multiplied by 1 + (roll − 10.5) × 0.02, from ×0.81 to ×1.19. Survivors are worked out from the rolled powers, then divided by the attacker\'s roll multiplier to turn power back into troops. Change or turn off the dice under Combat.',
     'The AI weighs every attack over all 400 rolls of the dice: its chance to win and the troops each side can expect to lose. Each faction has a risk appetite, the lowest chance of winning it attacks at (min win in the personality table): Undead 35%, Goblins 50% (60% raids), Elementals 65%, Hearthbound 70% (75% raids), Kobolds 85% (90% raids), Dwarves 90%, Orcs 20%.',
     'The AI leaves at least 5 troops on any node that borders land it doesn\'t hold when it attacks out of it or moves troops away (Orcs leave 2), and counts enemy armies two links away, at half strength, when deciding what to keep back. Without this, armies hop forward and leave empty nodes behind for anyone to walk into. See Guard under AI.',
@@ -855,7 +860,7 @@
     'Devastation reduces positive output only. The fixed food cost of castles and watchtowers is not reduced by devastation.',
     'A shortage happens when upkeep would push food or gold below zero. The stockpile is set to 0 and the largest garrison loses 10 per shortage (20 if both).',
     'The growth buff costs 2× this turn\'s gross gold income and must be affordable from the stockpile after production but before upkeep. It counts down at the end of each of the owner\'s upkeep phases, so it covers 5 of that kingdom\'s turns.',
-    'Hiring: the 2-batch limit and cost apply before growth. Soldiers = batches × 10 × growth, rounded down, so Slow growth gets 5 per batch.',
+    'Hiring: the 4-batch limit and cost apply before growth. Soldiers = batches × 10 × growth, rounded down, so Slow growth gets 5 per batch.',
     'Attacks use troops from one adjacent garrison. On a capture the survivors become the new garrison; survivors beyond a resource node\'s or outpost\'s garrison cap of 10 return to the node they attacked from.',
     'Morale: the target always loses 2 for being attacked. If the attack fails, the attacker\'s source node loses 2. A defender that loses a raid loses 2 more. A captured node resets to morale 3. Morale never drops below 1, and capitals stay at 10.',
     'Raids steal 1 food, 20 gold or 2 resources per surviving attacker, limited only by what the defender has. Setting "Max turns" under Raid caps it at that many turns of the node\'s output. Raiding an outpost steals nothing. Neutral nodes cannot be raided. Failed raids use the failed-capture formulas for both sides.',

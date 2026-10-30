@@ -27,6 +27,8 @@ public final class Kingdom {
     /** The burst cycle: "gather" or "attack". */
     public String mode = "gather";
     public int cooldownUntil;
+    /** Times it has used Train troops. */
+    public int trained;
     /** The round it last used Produce Resources (null: never), for its cooldown. */
     public Integer lastProduced;
     public final Stats stats = new Stats();
@@ -52,6 +54,8 @@ public final class Kingdom {
         /** Attacks the dice turned: won that would have been lost without them, or lost that would have been won. */
         public int upsets;
         public double stolenFood, stolenGold, stolenRes;
+        /** Gold lost to the end-of-turn decay (Rules.GoldDecay). */
+        public double goldDecayed;
     }
 
     Kingdom(SimMap.KingdomSetup s) {

@@ -50,6 +50,7 @@
     heroic: 'Heroic conquest',
     repair: 'Repair node',
     import_food: 'Import food',
+    train: 'Train troops',
   };
 
 
@@ -160,6 +161,8 @@
     return ratios[k - 1];
   }
 
+  function wildcardNote(extra) { return extra > 0 ? ` (${r2(extra)} more gold in place of what was missing)` : ''; }
+
   // The dice in a battle's log line, with the power they gave each side.
   function rollText(dice, r) {
     return dice.attackRoll ? `, rolls ${dice.attackRoll} vs ${dice.defenseRoll} (power ${r2(r.ap)} vs ${r2(r.dp)})` : '';
@@ -178,7 +181,7 @@
       const sc = clone(scenario);
       this.kingdoms = sc.kingdoms.map((k) => Object.assign({
         food: 0, gold: 0, res: 0, growth: 'normal', ai: 'balanced', goblinRule: false, buffTurns: 0,
-        strength: 1, player: false, mode: 'gather', raiseDead: 0, lastProduced: null,
+        strength: 1, player: false, mode: 'gather', raiseDead: 0, lastProduced: null, trained: 0,
       }, k));
       for (const k of this.kingdoms) {
         k.imports = (k.imports || []).map((c) => Object.assign({}, c));
@@ -291,7 +294,16 @@
     defPower(n, garrisonOverride, baseOverride) {
       return defenderPower(this.cfg, garrisonOverride == null ? n.garrison : garrisonOverride, this.finalDefense(n, baseOverride), this.defStrength(n));
     }
-    strength(kid) { return kid && this.K[kid] ? this.K[kid].strength || 1 : 1; }
+    // Troop strength: the kingdom's own, plus what it has trained.
+    strength(kid) {
+      const k = kid && this.K[kid];
+      return k ? (k.strength || 1) + (k.trained > 0 ? k.trained * this.cfg.train.step : 0) : 1;
+    }
+    // What the kingdom's next Train troops costs, or -1 if it can't train (off, or trained the most times).
+    trainCost(k) {
+      const t = this.cfg.train;
+      return !t || !t.enabled || k.trained >= t.max ? -1 : t.gold * (k.trained + 1);
+    }
     // Strength when defending: defStrength overrides strength, and homeDefStrength multiplies it on the owner's home nodes.
     defStrength(n) {
       const k = n.owner && this.K[n.owner];
@@ -428,7 +440,19 @@
       return cur;
     }
 
+    // The end of a kingdom's turn: it loses a share of the gold its nodes produced this turn (goldDecay), so gold that
+    // isn't spent wears away. Its stockpile never drops below 0.
+    decayGold() {
+      const d = this.cfg.goldDecay, cur = this.cur;
+      if (!cur || !d || !(d.share > 0)) return;
+      const k = this.K[cur.kid], before = k.gold;
+      k.gold = r2(Math.max(0, k.gold - cur.grossGold * d.share));
+      k.stats.goldDecayed = (k.stats.goldDecayed || 0) + before - k.gold;
+      if (before > k.gold) this.emit(cur.kid, 'phase', `End of turn: ${r2(before - k.gold)} gold lost (${d.share * 100}% of the ${r2(cur.grossGold)} produced this turn) → ${k.gold} gold`);
+    }
+
     endTurn() {
+      this.decayGold();
       this.cur = null;
       this.turnPos++;
       if (this.turnPos >= this.order.length) {
@@ -713,13 +737,28 @@
       const node = this.own(kid, a.node, 'where to place the troops');
       if (!['capital', 'town', 'castle'].includes(node.type)) throw new Error('Troops can only be placed in the capital, a town or a castle.');
       if (!this.connectedToCapital(kid, node.id)) throw new Error(`${node.name} has no friendly path to the capital; troops are cut off.`);
-      const w = b * c.gold, rs = b * c.res;
-      if (k.gold < w || k.res < rs) throw new Error(`Hiring ${b} batch(es) costs ${w} gold and ${rs} resources.`);
+      const w = b * c.gold, rs = b * c.res, paid = this.goldToPay(k, 0, w, rs);
+      if (paid < 0) throw new Error(`Hiring ${b} batch(es) costs ${w} gold and ${rs} resources.`);
       const gm = this.growthMult(kid), soldiers = Math.floor(b * c.batchSize * gm);
-      k.gold = r2(k.gold - w); k.res = r2(k.res - rs);
+      this.pay(k, 0, w, rs);
       node.garrison += soldiers;
       k.stats.hired += soldiers;
-      this.emit(kid, 'action', `Hire: ${b} batch(es) for ${w} gold + ${rs} resources × growth ${gm} = ${soldiers} soldiers at ${node.name}.`);
+      this.emit(kid, 'action', `Hire: ${b} batch(es) for ${w} gold + ${rs} resources${wildcardNote(paid - w)} × growth ${gm} = ${soldiers} soldiers at ${node.name}.`);
+    }
+
+    // The gold it takes k to pay food, gold and res, with gold standing in for any food or resources it lacks at the
+    // wildcard's rate (goldWildcard); -1 if it can't pay.
+    goldToPay(k, food, gold, res) {
+      const w = this.cfg.goldWildcard;
+      const shortFood = Math.max(0, food - k.food), shortRes = Math.max(0, res - k.res);
+      if ((shortFood > 0 && !(w && w.food > 0)) || (shortRes > 0 && !(w && w.res > 0))) return -1;
+      const total = gold + (shortFood > 0 ? shortFood * w.food : 0) + (shortRes > 0 ? shortRes * w.res : 0);
+      return total <= k.gold ? total : -1;
+    }
+    // Pays a cost goldToPay says the kingdom can: what it has of the food and resources, and gold for the rest.
+    pay(k, food, gold, res) {
+      const total = this.goldToPay(k, food, gold, res), f = Math.min(food, k.food), r = Math.min(res, k.res);
+      k.food = r2(k.food - f); k.gold = r2(k.gold - total); k.res = r2(k.res - r);
     }
 
     // Pays a share of the nodes' per-turn output; imported food does not count.
@@ -773,12 +812,22 @@
       if (n.upgrade) throw new Error(`${n.name} is already upgrading.`);
       if (n.tier >= MAX_TIER[n.type]) throw new Error(`${n.name} is already at max tier.`);
       const cost = this.upgradeCost(n);
-      if (k.food < cost.food || k.gold < cost.gold || k.res < cost.res) {
+      const paid = this.goldToPay(k, cost.food, cost.gold, cost.res);
+      if (paid < 0) {
         throw new Error(`Upgrading to T${cost.newTier} costs ${cost.food} food, ${cost.gold} gold, ${cost.res} resources.`);
       }
-      k.food = r2(k.food - cost.food); k.gold = r2(k.gold - cost.gold); k.res = r2(k.res - cost.res);
+      this.pay(k, cost.food, cost.gold, cost.res);
       n.upgrade = { target: cost.newTier, turnsLeft: cost.turns };
-      this.emit(kid, 'action', `${n.tier === 0 ? 'Rebuild' : 'Upgrade'} ${n.name} to T${cost.newTier} (${(TIER_NAMES[n.type] || [])[cost.newTier]}): ${cost.food} food, ${cost.gold} gold, ${cost.res} resources, ${cost.turns} turns.`);
+      this.emit(kid, 'action', `${n.tier === 0 ? 'Rebuild' : 'Upgrade'} ${n.name} to T${cost.newTier} (${(TIER_NAMES[n.type] || [])[cost.newTier]}): ${cost.food} food, ${cost.gold} gold, ${cost.res} resources${wildcardNote(paid - cost.gold)}, ${cost.turns} turns.`);
+    }
+
+    do_train(kid) {
+      const k = this.K[kid], cost = this.trainCost(k);
+      if (cost < 0) throw new Error("Troops can't be trained any further.");
+      if (k.gold < cost) throw new Error(`Training costs ${cost} gold.`);
+      k.gold = r2(k.gold - cost);
+      k.trained++;
+      this.emit(kid, 'action', `Train troops for ${cost} gold: troop strength now ×${r2(this.strength(kid))}.`);
     }
 
     do_repair(kid, a) {
@@ -852,7 +901,11 @@
       if (desired - army >= 20 / P.mil && after >= hireW * 2 && inc.food - up.food >= 0 && k.res >= this.cfg.hire.res * 4) this.buyBuff();
     }
 
+    // The army the kingdom wants: armyRatio times the enemy troops next to its land, and at least minArmy. With the
+    // army target off (ai.armyTarget), there's no limit: food and gold decide.
     desiredArmy(kid, P) {
+      const target = this.cfg.ai.armyTarget;
+      if (target && !target.enabled) return Infinity;
       let enemy = 0;
       const seen = new Set();
       for (const n of this.ownedNodes(kid)) for (const id of this.adj[n.id]) {
@@ -1110,8 +1163,9 @@
       const locs = this.hireLocations(kid);
       if (locs.length) {
         for (let b = c.hire.maxBatches; b >= 1; b--) {
-          const W = b * c.hire.gold, R = b * c.hire.res;
-          if (k.gold < W || k.res < R) continue;
+          // The gold it costs, with gold standing in for missing resources if the rules allow.
+          const W = this.goldToPay(k, 0, b * c.hire.gold, b * c.hire.res);
+          if (W < 0) continue;
           const soldiers = Math.floor(b * c.hire.batchSize * gm);
           if (soldiers < 1) continue;
           const nu = this.upkeepFor(army + soldiers, kid);
@@ -1239,7 +1293,7 @@
         if (!P.upgradeAway && P.homeRadius && !home.has(n.id) && n.tier >= 1) continue;
         const cost = this.upgradeCost(n);
         const foodBuf = Math.max(0, -netFood) * 3, wBuf = Math.max(0, -netGold) * 3;
-        if (k.food < cost.food + foodBuf || k.gold < cost.gold + wBuf || k.res < cost.res) continue;
+        if (this.goldToPay(k, cost.food + foodBuf, cost.gold + wBuf, cost.res) < 0) continue;
         const eff = Math.max(0, H - cost.turns);
         let gain = (Vfull(this.baseOutput(n, cost.newTier)) - Vfull(this.baseOutput(n))) * eff;
         if (n.type === 'castle') {
@@ -1248,7 +1302,9 @@
           if (cost.newTier === c.bonusActionCastleTier) gain += V(inc) * eff * 0.5;
         }
         if (n.type === 'outpost') gain += this.maxAdjThreat(n, kid) > 0 ? 150 : 20;
-        add(P.econ * (gain - V({ food: cost.food, gold: cost.gold, prod: cost.res })), { type: 'upgrade', node: n.id });
+        // What it spends: the food and resources it has, and gold for the rest.
+        const spent = { food: Math.min(cost.food, k.food), gold: this.goldToPay(k, cost.food, cost.gold, cost.res), prod: Math.min(cost.res, k.res) };
+        add(P.econ * (gain - V(spent)), { type: 'upgrade', node: n.id });
       }
 
       // Import food: worth it when food, not gold, is what stops the army from growing.
@@ -1257,13 +1313,19 @@
         for (let f = ic.maxPerAction; f >= 1; f--) {
           const cost = f * ic.duration * ic.goldPerFood;
           if (k.gold < cost + Math.max(0, -netGold) * 3) continue;
-          const room = Math.max(0, desired - army) - Math.max(0, netFood) * c.hire.batchSize;
+          // Troops it wants beyond what its food income feeds: with no army target, the troops its gold could hire.
+          const wanted = desired === Infinity ? Math.floor(k.gold / c.hire.gold) * c.hire.batchSize * gm : Math.max(0, desired - army);
+          const room = wanted - Math.max(0, netFood) * c.hire.batchSize;
           const enabled = Math.min(f * c.hire.batchSize, Math.max(0, room));
           const relief = netFood < 0 ? Math.min(f, -netFood) * ai.foodValue * ic.duration : 0;
           add(P.mil * enabled * SV * 1.5 + relief - cost * ww, { type: 'import_food', food: f });
           break;
         }
       }
+
+      // Train troops: a permanent strength bonus, worth that many more soldiers for each round still to play (a fifth each).
+      const trainCost = this.trainCost(k);
+      if (trainCost >= 0 && k.gold >= trainCost + Math.max(0, -netGold) * 3) add(P.mil * army * c.train.step * SV * H / 5 - trainCost * ww, { type: 'train' });
 
       // Produce resources is always available.
       if (this.canProduce(kid)) {

@@ -19,7 +19,8 @@ public record Action(Type type, String from, String to, String target, int troop
         UPGRADE("upgrade", "Upgrade a node"),
         HEROIC("heroic", "Heroic conquest"),
         REPAIR("repair", "Repair node"),
-        IMPORT_FOOD("import_food", "Import food");
+        IMPORT_FOOD("import_food", "Import food"),
+        TRAIN("train", "Train troops");
 
         /** As the simulator names it. */
         public final String id;
