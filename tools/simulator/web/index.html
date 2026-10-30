@@ -1,0 +1,866 @@
+<title>Kingdom Stats Simulator</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Alegreya+SC:wght@500;700&family=Alegreya+Sans:wght@400;500;700&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+  /* Layout: a war-table workspace. Map and chronicle on the left, the kingdoms' ledgers on the right; tabs for batch testing, the combat calculator and the rules. */
+  :root {
+    --bg: #E9ECE6; --panel: #F7F8F4; --sunk: #DFE3DB; --ink: #1D2520; --muted: #5A665E; --line: #C6CEC5;
+    --accent: #2C4C72; --accent-ink: #FFFFFF; --good: #2E7A47; --warn: #A26F0E; --bad: #B13A2D;
+    --neutral: #8A918B;
+    --f-display: "Alegreya SC", "Palatino Linotype", Georgia, serif;
+    --f-body: "Alegreya Sans", "Segoe UI", system-ui, sans-serif;
+    --f-mono: "JetBrains Mono", Consolas, "Courier New", monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #141916; --panel: #1C221E; --sunk: #232B26; --ink: #E2E7E0; --muted: #96A399; --line: #34403A;
+      --accent: #8EB2DC; --accent-ink: #10161D; --good: #6CC08A; --warn: #E0AE4A; --bad: #EE7D6F; --neutral: #7D857F;
+      color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #141916; --panel: #1C221E; --sunk: #232B26; --ink: #E2E7E0; --muted: #96A399; --line: #34403A;
+    --accent: #8EB2DC; --accent-ink: #10161D; --good: #6CC08A; --warn: #E0AE4A; --bad: #EE7D6F; --neutral: #7D857F;
+    color-scheme: dark;
+  }
+  * { box-sizing: border-box; }
+  body { background: var(--bg); color: var(--ink); font-family: var(--f-body); font-size: 15px; line-height: 1.45; }
+  .wrap { padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 16px 40px; max-width: 1500px; margin: 0 auto; display: grid; gap: 14px; }
+  h1, h2, h3 { font-family: var(--f-display); font-weight: 700; margin: 0; text-wrap: balance; letter-spacing: 0.01em; }
+  h1 { font-size: 1.75rem; }
+  h2 { font-size: 1.2rem; }
+  h3 { font-size: 1rem; }
+  .num, input[type=number], .mono { font-family: var(--f-mono); font-variant-numeric: tabular-nums; }
+  .muted { color: var(--muted); }
+  .label { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); font-weight: 700; }
+
+  header.top { display: flex; flex-wrap: wrap; align-items: end; justify-content: space-between; gap: 12px; }
+  .round-box { display: flex; align-items: baseline; gap: 10px; }
+  .round-box .big { font-family: var(--f-display); font-size: 1.9rem; line-height: 1; }
+  .controls { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+  button { font: inherit; font-weight: 500; border: 1px solid var(--line); background: var(--panel); color: var(--ink); padding: 6px 12px; border-radius: 6px; cursor: pointer; }
+  button:hover:not(:disabled) { border-color: var(--accent); }
+  button.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+  button:disabled { opacity: 0.45; cursor: not-allowed; }
+  button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  input, select, textarea { font: inherit; color: var(--ink); background: var(--panel); border: 1px solid var(--line); border-radius: 5px; padding: 4px 6px; min-width: 0; }
+  input[type=number] { width: 5.5em; font-size: 0.88rem; }
+  .field { display: grid; gap: 2px; }
+  .field > span { font-size: 0.78rem; color: var(--muted); }
+
+  nav.tabs { display: flex; gap: 2px; border-bottom: 1px solid var(--line); overflow-x: auto; }
+  nav.tabs button { border: none; border-bottom: 3px solid transparent; border-radius: 0; background: none; padding: 8px 14px; color: var(--muted); white-space: nowrap; }
+  nav.tabs button[aria-selected="true"] { color: var(--ink); border-bottom-color: var(--accent); font-weight: 700; }
+
+  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 14px; min-width: 0; }
+  .grid-main { display: grid; grid-template-columns: minmax(0, 1.55fr) minmax(320px, 1fr); gap: 14px; align-items: start; }
+  @media (max-width: 980px) { .grid-main { grid-template-columns: minmax(0, 1fr); } }
+  .stack { display: grid; gap: 14px; min-width: 0; }
+
+  .map-wrap { overflow-x: auto; }
+  svg.map { width: 100%; min-width: 560px; height: auto; display: block; }
+  svg.map .edge { stroke: var(--line); stroke-width: 2.5; }
+  svg.map .nodeg { cursor: pointer; }
+  svg.map text { fill: var(--ink); font-family: var(--f-body); }
+  svg.map .gar { font-family: var(--f-mono); font-weight: 600; font-size: 14px; }
+  svg.map .nm { font-size: 12.5px; font-weight: 500; }
+  svg.map .tn { font-size: 10.5px; fill: var(--muted); }
+  svg.map .sel { fill: none; stroke: var(--accent); stroke-width: 2.5; stroke-dasharray: 5 4; }
+  svg.map .dev { fill: none; stroke: var(--bad); stroke-width: 4; }
+  svg.map .badge { fill: var(--accent); }
+  svg.map .badge-t { fill: var(--accent-ink); font-family: var(--f-mono); font-size: 10px; font-weight: 600; }
+  .legend { display: flex; flex-wrap: wrap; gap: 6px 16px; font-size: 0.82rem; color: var(--muted); margin-top: 8px; }
+
+  .kcard { border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; display: grid; gap: 8px; background: var(--panel); }
+  .kcard.active { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+  .khead { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .swatch { width: 12px; height: 12px; border-radius: 3px; flex: none; }
+  .khead h3 { flex: 1; min-width: 0; }
+  .chip { font-size: 0.72rem; padding: 1px 7px; border-radius: 99px; border: 1px solid var(--line); color: var(--muted); white-space: nowrap; }
+  .chip.on { border-color: var(--accent); color: var(--accent); }
+  .chip.bad { border-color: var(--bad); color: var(--bad); }
+  .stats { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 6px; }
+  .stat { display: grid; gap: 0; }
+  .stat .v { font-family: var(--f-mono); font-size: 0.95rem; font-variant-numeric: tabular-nums; }
+  .stat .d { font-family: var(--f-mono); font-size: 0.75rem; }
+  .pos { color: var(--good); } .neg { color: var(--bad); }
+  @media (max-width: 460px) { .stats { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+
+  .kv { display: grid; grid-template-columns: auto 1fr; gap: 3px 14px; font-size: 0.9rem; }
+  .kv dt { color: var(--muted); }
+  .kv dd { margin: 0; font-family: var(--f-mono); font-variant-numeric: tabular-nums; }
+
+  .manual { border: 2px solid var(--accent); }
+  .form-row { display: flex; flex-wrap: wrap; gap: 10px; align-items: end; }
+  .preview { background: var(--sunk); border-radius: 6px; padding: 8px 10px; font-size: 0.88rem; }
+  .error { color: var(--bad); font-size: 0.88rem; }
+
+  .log { max-height: 420px; overflow-y: auto; font-size: 0.86rem; display: grid; gap: 2px; }
+  .log .row { display: grid; grid-template-columns: 3.2em 4px minmax(0, 1fr); gap: 8px; padding: 3px 0; border-bottom: 1px solid var(--sunk); }
+  .log .r { font-family: var(--f-mono); color: var(--muted); font-size: 0.78rem; }
+  .log .stripe { border-radius: 2px; }
+  .log .capture { font-weight: 700; }
+  .log .fail { color: var(--warn); }
+  .log .shortage { color: var(--bad); font-weight: 700; }
+  .log .phase { color: var(--muted); }
+
+  .chart svg { width: 100%; height: auto; display: block; }
+  .chart .grid { stroke: var(--line); stroke-width: 1; }
+  .chart text { fill: var(--muted); font-family: var(--f-mono); font-size: 11px; }
+
+  table { border-collapse: collapse; width: 100%; font-size: 0.88rem; }
+  th, td { text-align: right; padding: 5px 8px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+  th:first-child, td:first-child { text-align: left; }
+  th { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); font-weight: 700; }
+  td { font-family: var(--f-mono); font-variant-numeric: tabular-nums; }
+  td:first-child { font-family: var(--f-body); }
+  .table-wrap { overflow-x: auto; }
+  .bar { height: 14px; display: flex; border-radius: 3px; overflow: hidden; min-width: 160px; }
+  .bar span { display: block; height: 100%; }
+
+  .cfg { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 12px; }
+  fieldset { border: 1px solid var(--line); border-radius: 8px; padding: 8px 12px 12px; margin: 0; min-width: 0; display: grid; gap: 6px; }
+  legend { font-family: var(--f-display); font-weight: 700; padding: 0 4px; }
+  .cfg-row { display: flex; justify-content: space-between; align-items: center; gap: 8px; font-size: 0.88rem; }
+  .cfg-row .help { color: var(--muted); font-size: 0.78rem; }
+  textarea { width: 100%; min-height: 260px; font-family: var(--f-mono); font-size: 0.8rem; }
+  ol.notes { margin: 0; padding-left: 1.3em; display: grid; gap: 6px; max-width: 75ch; }
+  .progress { height: 6px; background: var(--sunk); border-radius: 3px; overflow: hidden; }
+  .progress span { display: block; height: 100%; background: var(--accent); width: 0; }
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+
+<div class="wrap">
+  <header class="top">
+    <div>
+      <div class="label">Kingdom Stats ruleset</div>
+      <h1>Kingdom Stats Simulator</h1>
+    </div>
+    <div class="round-box">
+      <span class="label">Round</span><span class="big num" id="roundNum">1</span>
+      <span class="muted" id="turnInfo"></span>
+    </div>
+  </header>
+
+  <nav class="tabs" role="tablist">
+    <button role="tab" data-tab="sim" aria-selected="true">Play a game</button>
+    <button role="tab" data-tab="batch" aria-selected="false">Batch test</button>
+    <button role="tab" data-tab="calc" aria-selected="false">Combat calculator</button>
+    <button role="tab" data-tab="rules" aria-selected="false">Rules &amp; map</button>
+  </nav>
+
+  <!-- PLAY -->
+  <section id="tab-sim" class="stack">
+    <div class="panel controls">
+      <button class="primary" id="btnTurn">Next turn</button>
+      <button id="btnRound">Next round</button>
+      <button id="btnRun">Run 10 rounds</button>
+      <button id="btnAuto">Auto-play</button>
+      <label class="field"><span>Seed</span><input type="number" id="seed" value="1"></label>
+      <label class="field"><span>Game length (rounds)</span><input type="number" id="maxRounds" value="40" min="1"></label>
+      <button id="btnReset">Restart game</button>
+    </div>
+    <div class="grid-main">
+      <div class="stack">
+        <div class="panel">
+          <div class="map-wrap"><svg class="map" id="map" viewBox="0 0 1000 700" role="img" aria-label="Kingdom map"></svg></div>
+          <div class="legend">
+            <span>● Town</span><span>◎ Capital</span><span>■ Castle</span><span>◆ Food</span><span>⬢ Production</span><span>▲ Outpost</span>
+            <span>Number = garrison</span><span><span style="color:var(--bad)">Red arc</span> = devastation</span><span>Blue badge = turns until upgrade finishes</span>
+          </div>
+        </div>
+        <div class="panel chart">
+          <div class="form-row" style="justify-content:space-between">
+            <h2>Over time</h2>
+            <select id="chartMetric" aria-label="Chart metric">
+              <option value="nodes">Nodes held</option><option value="army">Army size</option>
+              <option value="food">Food stockpile</option><option value="wealth">Wealth stockpile</option><option value="res">Resource stockpile</option>
+              <option value="foodNet">Net food per turn</option><option value="wealthNet">Net wealth per turn</option>
+            </select>
+          </div>
+          <div id="chart"></div>
+        </div>
+        <div class="panel">
+          <div class="form-row" style="justify-content:space-between">
+            <h2>Chronicle</h2>
+            <select id="logFilter" aria-label="Log filter">
+              <option value="all">Everything</option><option value="war">Battles and shortages</option><option value="actions">Actions only</option>
+            </select>
+          </div>
+          <div class="log" id="log"></div>
+        </div>
+      </div>
+      <div class="stack">
+        <div id="manual"></div>
+        <div id="kingdoms" class="stack"></div>
+        <div class="panel" id="nodePanel"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- BATCH -->
+  <section id="tab-batch" class="stack" hidden>
+    <div class="panel stack">
+      <p class="muted" style="margin:0;max-width:75ch">Runs many AI-only games with the current rules, map and AI personalities, then averages the results. Manual kingdoms play as Balanced here. Use it to see whether a rule change makes a faction dominant, starves armies or makes an action useless.</p>
+      <div class="form-row">
+        <label class="field"><span>Games</span><input type="number" id="bGames" value="200" min="1"></label>
+        <label class="field"><span>Rounds per game</span><input type="number" id="bRounds" value="40" min="1"></label>
+        <label class="field"><span>First seed</span><input type="number" id="bSeed" value="1"></label>
+        <label class="field"><span>AI randomness</span><input type="number" id="bNoise" value="0.3" step="0.05" min="0"></label>
+        <button class="primary" id="btnBatch">Run batch</button>
+      </div>
+      <div class="progress"><span id="bProg"></span></div>
+    </div>
+    <div id="batchOut" class="stack"></div>
+  </section>
+
+  <!-- CALCULATOR -->
+  <section id="tab-calc" class="stack" hidden>
+    <div class="panel stack">
+      <h2>Combat calculator</h2>
+      <div class="form-row">
+        <label class="field"><span>Attack</span><select id="cMode"><option value="capture">Capture node</option><option value="raid">Raid</option><option value="heroic">Heroic conquest</option></select></label>
+        <label class="field"><span>Attacking troops</span><input type="number" id="cTroops" value="40" min="1"></label>
+        <label class="field"><span>Node type</span><select id="cType"><option value="town">Town</option><option value="capital">Capital</option><option value="castle">Castle</option><option value="food">Food</option><option value="production">Production</option><option value="outpost">Outpost</option></select></label>
+        <label class="field"><span>Tier</span><input type="number" id="cTier" value="2" min="0" max="5"></label>
+        <label class="field"><span>Garrison</span><input type="number" id="cGar" value="20" min="0"></label>
+        <label class="field"><span>Base defense</span><input type="number" id="cDef" value="4" min="0"></label>
+        <label class="field"><span>Morale (1–10)</span><input type="number" id="cMor" value="10" min="1" max="10"></label>
+      </div>
+      <div id="calcOut"></div>
+      <div class="chart" id="calcChart"></div>
+    </div>
+  </section>
+
+  <!-- RULES -->
+  <section id="tab-rules" class="stack" hidden>
+    <div class="panel stack">
+      <div class="form-row" style="justify-content:space-between">
+        <h2>Rule numbers</h2>
+        <div class="controls"><button class="primary" id="btnApplyCfg">Apply and restart</button><button id="btnResetCfg">Restore defaults</button></div>
+      </div>
+      <p class="muted" style="margin:0">Every number from the ruleset. Change one, press Apply, then run a batch to compare.</p>
+      <div class="cfg" id="cfg"></div>
+    </div>
+    <div class="panel stack">
+      <h2>How the simulator reads the rules</h2>
+      <p class="muted" style="margin:0">Where the text leaves room for interpretation, this is what the engine does.</p>
+      <ol class="notes" id="notes"></ol>
+    </div>
+    <div class="panel stack">
+      <div class="form-row" style="justify-content:space-between">
+        <h2>Map and starting state</h2>
+        <div class="controls">
+          <button class="primary" id="btnApplyMap">Apply and restart</button>
+          <button id="btnSnapMap">Load current game state</button>
+          <button id="btnCopyMap">Copy</button>
+          <select id="presetMap" aria-label="Preset map"></select>
+          <button id="btnResetMap">Load preset</button>
+        </div>
+      </div>
+      <p class="muted" style="margin:0;max-width:80ch">JSON with <span class="mono">kingdoms</span> (id, name, color, growth: fast/normal/slow, ai: a personality name or manual, goblinRule, player: true for the player faction, strength: troop strength multiplier, upkeepMult: upkeep multiplier, homeDefStrength: troop strength multiplier when defending its own home nodes, foes: kingdom ids a raze faction attacks, noFreeRebuild: true to skip the free rebuild on captured land outside its home, food, wealth, res), <span class="mono">nodes</span> (id, name, type: capital/town/castle/food/production/outpost, tier, owner, garrison, defense, morale, devastation, x and y in any range; the map fits itself to them) and <span class="mono">edges</span> (pairs of node ids).</p>
+      <div class="error" id="mapErr"></div>
+      <textarea id="mapJson" spellcheck="false" aria-label="Scenario JSON"></textarea>
+    </div>
+  </section>
+</div>
+
+<script src="scenario.js"></script>
+<script src="continent.js"></script>
+<script src="continent-large.js"></script>
+<script src="engine.js"></script>
+<script>
+(function () {
+  'use strict';
+  const S = window.KingdomSim;
+  const $ = (id) => document.getElementById(id);
+  const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  const fmt = (v) => { const n = Math.round(v * 100) / 100; return Math.abs(n) >= 10000 ? Math.round(n).toLocaleString() : String(n); };
+  const sgn = (v) => (v > 0 ? '+' : '') + fmt(v);
+  const STORE = 'kingdomSim.v8';
+
+  const state = {
+    config: S.clone(S.DEFAULT_CONFIG),
+    scenario: S.clone(window.SCENARIOS.large),
+    seed: 1, maxRounds: 40, selected: null, form: {}, formError: '', auto: null,
+  };
+  try {
+    const saved = JSON.parse(localStorage.getItem(STORE) || 'null');
+    if (saved) {
+      if (saved.config) state.config = S.deepMerge(S.DEFAULT_CONFIG, saved.config);
+      if (saved.scenario) state.scenario = saved.scenario;
+      if (saved.seed != null) state.seed = saved.seed;
+      if (saved.maxRounds) state.maxRounds = saved.maxRounds;
+    }
+  } catch (e) { /* storage unavailable */ }
+  function persist() {
+    try { localStorage.setItem(STORE, JSON.stringify({ config: state.config, scenario: state.scenario, seed: state.seed, maxRounds: state.maxRounds })); } catch (e) { /* ignore */ }
+  }
+
+  let game;
+  function newGame() {
+    stopAuto();
+    game = new S.Game(state.scenario, state.config, { seed: state.seed, maxRounds: state.maxRounds });
+    state.form = {}; state.formError = '';
+    renderAll();
+  }
+
+  // ---------- tabs ----------
+  document.querySelectorAll('nav.tabs button').forEach((b) => b.addEventListener('click', () => {
+    document.querySelectorAll('nav.tabs button').forEach((x) => x.setAttribute('aria-selected', x === b ? 'true' : 'false'));
+    for (const t of ['sim', 'batch', 'calc', 'rules']) $('tab-' + t).hidden = t !== b.dataset.tab;
+    if (b.dataset.tab === 'calc') renderCalc();
+  }));
+
+  // ---------- controls ----------
+  function waitingOnPlayer() { return !!game.cur; }
+  function stepTurn() { if (!waitingOnPlayer()) game.step(); renderAll(); }
+  function runRounds(n) {
+    for (let i = 0; i < n; i++) { if (game.runRound() !== 'done') break; }
+    renderAll();
+  }
+  function stopAuto() { if (state.auto) { clearInterval(state.auto); state.auto = null; } if ($('btnAuto')) $('btnAuto').textContent = 'Auto-play'; }
+  $('btnTurn').onclick = stepTurn;
+  $('btnRound').onclick = () => runRounds(1);
+  $('btnRun').onclick = () => runRounds(10);
+  $('btnAuto').onclick = () => {
+    if (state.auto) return stopAuto();
+    $('btnAuto').textContent = 'Pause';
+    state.auto = setInterval(() => {
+      if (waitingOnPlayer() || game.round > state.maxRounds) { stopAuto(); renderAll(); return; }
+      game.step(); renderAll();
+    }, 350);
+  };
+  $('btnReset').onclick = () => { state.seed = Number($('seed').value) || 1; state.maxRounds = Math.max(1, Number($('maxRounds').value) || 40); persist(); newGame(); };
+  $('seed').value = state.seed; $('maxRounds').value = state.maxRounds;
+  $('chartMetric').onchange = renderChart;
+  $('logFilter').onchange = renderLog;
+
+  function renderAll() {
+    $('roundNum').textContent = game.round;
+    const kid = game.cur ? game.cur.kid : game.currentKid();
+    $('turnInfo').textContent = `${game.cur ? 'Now playing' : 'Up next'}: ${game.kname(kid)}`;
+    const busy = waitingOnPlayer();
+    for (const id of ['btnTurn', 'btnRound', 'btnRun', 'btnAuto']) $(id).disabled = busy;
+    renderMap(); renderKingdoms(); renderManual(); renderNode(); renderLog(); renderChart();
+  }
+
+  // ---------- map ----------
+  function shape(type, x, y) {
+    const poly = (pts) => `<polygon points="${pts.map((p) => p.join(',')).join(' ')}"`;
+    const reg = (n, r, rot) => poly(Array.from({ length: n }, (_, i) => { const a = rot + i * 2 * Math.PI / n; return [x + r * Math.cos(a), y + r * Math.sin(a)].map((v) => v.toFixed(1)); }));
+    switch (type) {
+      case 'capital': return `<circle cx="${x}" cy="${y}" r="29"`;
+      case 'town': return `<circle cx="${x}" cy="${y}" r="22"`;
+      case 'castle': return `<rect x="${x - 21}" y="${y - 21}" width="42" height="42" rx="3"`;
+      case 'food': return reg(4, 26, -Math.PI / 2);
+      case 'production': return reg(6, 24, 0);
+      case 'outpost': return reg(3, 27, -Math.PI / 2);
+    }
+    return `<circle cx="${x}" cy="${y}" r="20"`;
+  }
+  function kcolor(owner) { return owner && game.K[owner] ? game.K[owner].color : 'var(--neutral)'; }
+  function renderMap() {
+    let h = '';
+    const seen = new Set();
+    for (const n of game.nodes) for (const m of game.adj[n.id]) {
+      const key = [n.id, m].sort().join('|');
+      if (seen.has(key)) continue; seen.add(key);
+      const o = game.N[m];
+      h += `<line class="edge" x1="${n.x}" y1="${n.y}" x2="${o.x}" y2="${o.y}"/>`;
+    }
+    const curK = game.cur ? game.cur.kid : null;
+    for (const n of game.nodes) {
+      const col = kcolor(n.owner);
+      const op = n.tier === 0 && n.type !== 'capital' ? 0.08 : 0.24;
+      h += `<g class="nodeg" data-id="${n.id}" tabindex="0" role="button" aria-label="${esc(n.name)}">`;
+      if (n.type === 'capital') h += `<circle cx="${n.x}" cy="${n.y}" r="35" fill="none" stroke="${col}" stroke-width="2"/>`;
+      h += `${shape(n.type, n.x, n.y)} fill="${col}" fill-opacity="${op}" stroke="${col}" stroke-width="${n.owner === curK && curK ? 4 : 3}" ${n.tier === 0 && n.type !== 'capital' ? 'stroke-dasharray="4 4"' : ''}/>`;
+      if (n.devastation > 0) {
+        const r = n.type === 'capital' ? 40 : 31, c = 2 * Math.PI * r;
+        h += `<circle class="dev" cx="${n.x}" cy="${n.y}" r="${r}" stroke-dasharray="${(c * n.devastation).toFixed(1)} ${c.toFixed(1)}" transform="rotate(-90 ${n.x} ${n.y})"/>`;
+      }
+      if (state.selected === n.id) h += `<circle class="sel" cx="${n.x}" cy="${n.y}" r="${n.type === 'capital' ? 46 : 37}"/>`;
+      h += `<text class="gar" x="${n.x}" y="${n.y + 5}" text-anchor="middle">${n.garrison}</text>`;
+      const ly = n.y + (n.type === 'capital' ? 52 : 42);
+      h += `<text class="nm" x="${n.x}" y="${ly}" text-anchor="middle">${esc(n.name)}</text>`;
+      h += `<text class="tn" x="${n.x}" y="${ly + 13}" text-anchor="middle">${esc(game.tierName(n))} · T${n.tier}</text>`;
+      if (n.upgrade) {
+        h += `<circle class="badge" cx="${n.x + 22}" cy="${n.y - 22}" r="10"/><text class="badge-t" x="${n.x + 22}" y="${n.y - 18.5}" text-anchor="middle">${n.upgrade.turnsLeft}</text>`;
+      }
+      h += `</g>`;
+    }
+    $('map').innerHTML = h;
+    // Fit the view to the map, leaving room for capital rings and the name labels under each node.
+    const xs = game.nodes.map((n) => n.x), ys = game.nodes.map((n) => n.y);
+    const x0 = Math.min(...xs) - 90, y0 = Math.min(...ys) - 55, x1 = Math.max(...xs) + 90, y1 = Math.max(...ys) + 75;
+    $('map').setAttribute('viewBox', `${x0} ${y0} ${x1 - x0} ${y1 - y0}`);
+  }
+  $('map').addEventListener('click', (e) => {
+    const g = e.target.closest('.nodeg'); if (!g) return;
+    state.selected = g.dataset.id; renderMap(); renderNode();
+  });
+  $('map').addEventListener('keydown', (e) => {
+    const g = e.target.closest('.nodeg'); if (!g || (e.key !== 'Enter' && e.key !== ' ')) return;
+    e.preventDefault(); state.selected = g.dataset.id; renderMap(); renderNode();
+  });
+
+  // ---------- kingdoms ----------
+  function renderKingdoms() {
+    let h = '';
+    const curK = game.cur ? game.cur.kid : game.currentKid();
+    for (const k of game.kingdoms) {
+      const inc = game.income(k.id), up = game.upkeep(k.id), army = game.army(k.id);
+      const nf = inc.food - up.food, nw = inc.wealth - up.wealth;
+      const s = k.stats;
+      const opts = Object.keys(game.cfg.ai.personalities).concat('manual').map((a) => `<option value="${a}" ${k.ai === a ? 'selected' : ''}>${a === 'manual' ? 'You play' : 'AI: ' + a}</option>`).join('');
+      h += `<div class="kcard ${k.id === curK ? 'active' : ''}">
+        <div class="khead"><span class="swatch" style="background:${k.color}"></span><h3>${esc(k.name)}</h3>
+          <select data-ai="${k.id}" aria-label="Who controls ${esc(k.name)}">${opts}</select></div>
+        <div class="khead" style="gap:6px">
+          ${k.player ? '<span class="chip on">player faction</span>' : ''}
+          <span class="chip">${k.growth} growth ×${fmt(game.growthMult(k.id))}</span>
+          ${(k.strength || 1) !== 1 ? `<span class="chip">troop strength ×${k.strength}</span>` : ''}
+          ${k.upkeepMult && k.upkeepMult !== 1 ? `<span class="chip">upkeep ×${k.upkeepMult}</span>` : ''}
+          ${k.homeDefStrength && k.homeDefStrength !== 1 ? `<span class="chip">troops ×${k.homeDefStrength} defending home nodes</span>` : ''}
+          ${k.raiseDead > 0 ? `<span class="chip">raises ${Math.round(k.raiseDead * 100)}% of the fallen${k.stats.raised ? ` (${k.stats.raised} so far)` : ''}</span>` : ''}
+          ${game.personality(k).burst && k.ai !== 'manual' ? `<span class="chip ${k.mode === 'attack' ? 'bad' : ''}">${k.mode === 'attack' ? 'on the offensive' : 'massing troops'}</span>` : ''}
+          ${k.buffTurns > 0 ? `<span class="chip on">growth buff ${k.buffTurns} turns</span>` : ''}
+          ${k.goblinRule ? '<span class="chip">goblin food rule</span>' : ''}
+          ${k.imports.length ? `<span class="chip on">importing +${game.importedFood(k.id)} food/t</span>` : ''}
+          <span class="chip">${1 + game.bonusActions(k.id)} action${game.bonusActions(k.id) ? 's' : ''}/turn</span>
+          ${nf < 0 ? '<span class="chip bad">food upkeep exceeds income</span>' : ''}
+        </div>
+        <div class="stats">
+          <div class="stat"><span class="label">Food</span><span class="v">${fmt(k.food)}</span><span class="d ${nf < 0 ? 'neg' : 'pos'}">${sgn(nf)}/t</span></div>
+          <div class="stat"><span class="label">Wealth</span><span class="v">${fmt(k.wealth)}</span><span class="d ${nw < 0 ? 'neg' : 'pos'}">${sgn(nw)}/t</span></div>
+          <div class="stat"><span class="label">Resources</span><span class="v">${fmt(k.res)}</span><span class="d pos">${sgn(inc.prod)}/t</span></div>
+          <div class="stat"><span class="label">Army</span><span class="v">${army}</span><span class="d muted">${up.batches} batches</span></div>
+          <div class="stat"><span class="label">Nodes</span><span class="v">${game.ownedNodes(k.id).length}</span><span class="d muted">+${s.nodesGained} −${s.nodesLost}</span></div>
+        </div>
+      </div>`;
+    }
+    $('kingdoms').innerHTML = h;
+    $('kingdoms').querySelectorAll('select[data-ai]').forEach((sel) => sel.onchange = () => {
+      const kid = sel.dataset.ai;
+      game.K[kid].ai = sel.value;
+      const sk = state.scenario.kingdoms.find((k) => k.id === kid); if (sk) sk.ai = sel.value;
+      persist(); renderAll();
+    });
+  }
+
+  // ---------- node panel ----------
+  function renderNode() {
+    const n = game.N[state.selected];
+    if (!n) { $('nodePanel').innerHTML = '<h2>Node</h2><p class="muted" style="margin:6px 0 0">Click a node on the map to see its stats.</p>'; return; }
+    const o = game.output(n), b = game.baseOutput(n);
+    const cap = game.garrisonCap(n);
+    const nb = game.adj[n.id].map((id) => esc(game.name(id))).join(', ');
+    $('nodePanel').innerHTML = `<div class="khead"><span class="swatch" style="background:${kcolor(n.owner)}"></span><h2>${esc(n.name)}</h2></div>
+      <p class="muted" style="margin:2px 0 10px">${S.TYPE_LABELS[n.type]} · ${esc(game.tierName(n))} (T${n.tier}) · ${esc(game.kname(n.owner))}</p>
+      <dl class="kv">
+        <dt>Garrison</dt><dd>${n.garrison}${cap !== Infinity ? ' / ' + cap : ''}</dd>
+        <dt>Defense</dt><dd>base ${n.defense} (cap ${game.defCap(n)}) × ${game.defMult(n)} × morale ${n.morale}/10 = ${fmt(game.finalDefense(n))}</dd>
+        <dt>Defender power</dt><dd>${n.garrison} × (1 + ${fmt(game.finalDefense(n))}/20) + ${fmt(game.finalDefense(n))} = ${fmt(game.defPower(n))}</dd>
+        <dt>Morale</dt><dd>${n.morale}</dd>
+        <dt>Devastation</dt><dd>${fmt(n.devastation)}</dd>
+        <dt>Output / turn</dt><dd>${sgn(o.food)} food, ${sgn(o.wealth)} wealth, ${sgn(o.prod)} res${n.devastation > 0 ? ` <span class="muted">(base ${fmt(b.food)} / ${fmt(b.wealth)} / ${fmt(b.prod)})</span>` : ''}</dd>
+        <dt>Upgrade</dt><dd>${n.upgrade ? `to T${n.upgrade.target}, ${n.upgrade.turnsLeft} turns left` : n.type === 'capital' ? 'fixed at T5' : n.tier >= S.MAX_TIER[n.type] ? 'max tier' : (() => { const c = game.upgradeCost(n); return `T${c.newTier}: ${c.food} food, ${c.wealth} wealth, ${c.res} res, ${c.turns} turns`; })()}</dd>
+        <dt>Neighbours</dt><dd style="font-family:var(--f-body)">${nb}</dd>
+      </dl>`;
+  }
+
+  // ---------- manual play ----------
+  const ACTION_FIELDS = {
+    reinforce_border: [], produce: [],
+    send: ['from', 'to', 'amount'],
+    capture: ['from', 'target', 'troops'],
+    heroic: ['from', 'target', 'troops'],
+    raid: ['from', 'target', 'troops', 'resource'],
+    hire: ['batches', 'node'],
+    fortify: ['node', 'steps'],
+    upgrade: ['node'],
+    repair: ['node'],
+    import_food: ['food'],
+  };
+  function renderManual() {
+    const box = $('manual');
+    if (!game.cur || game.K[game.cur.kid].ai !== 'manual') { box.innerHTML = ''; return; }
+    const kid = game.cur.kid, k = game.K[kid];
+    if (game.cur.phase === 'production') {
+      const cost = game.buffCost();
+      const can = k.wealth >= cost && k.buffTurns <= 0 && cost > 0;
+      box.innerHTML = `<div class="panel manual stack">
+        <div><div class="label">Your turn · production phase</div><h2>${esc(k.name)}</h2></div>
+        <p style="margin:0">Production is in. Before upkeep you may buy the growth buff: growth ×${state.config.buff.mult} for ${state.config.buff.duration} turns, costing ${state.config.buff.costTurns} turns of gross wealth income.</p>
+        <div class="form-row">
+          <button id="mBuff" ${can ? '' : 'disabled'}>Buy growth buff (${fmt(cost)} wealth)</button>
+          <button class="primary" id="mCont">Pay upkeep and take actions</button>
+        </div>
+        ${k.buffTurns > 0 ? `<p class="muted" style="margin:0">Buff already active (${k.buffTurns} turns left).</p>` : (!can ? `<p class="muted" style="margin:0">You have ${fmt(k.wealth)} wealth.</p>` : '')}
+        <div class="error">${esc(state.formError)}</div>
+      </div>`;
+      $('mBuff').onclick = () => { try { game.buyBuff(); state.formError = ''; } catch (e) { state.formError = e.message; } renderAll(); };
+      $('mCont').onclick = () => { game.finishProduction(); state.formError = ''; renderAll(); };
+      return;
+    }
+    const f = state.form;
+    if (!f.type) f.type = 'produce';
+    const owned = game.ownedNodes(kid);
+    const opt = (list, val, lbl) => '<option value="">—</option>' + list.map((n) => `<option value="${n.id}" ${val === n.id ? 'selected' : ''}>${esc(lbl ? lbl(n) : n.name)}</option>`).join('');
+    const fields = ACTION_FIELDS[f.type];
+    const from = game.N[f.from];
+    let targets = [];
+    if (from && from.owner === kid) targets = game.adj[from.id].map((id) => game.N[id]).filter((n) => n.owner !== kid && (f.type === 'raid' ? n.owner : n.type !== 'capital'));
+    const fieldHtml = fields.map((fl) => {
+      switch (fl) {
+        case 'from': return `<label class="field"><span>${f.type === 'send' ? 'From' : 'Attack from'}</span><select data-f="from">${opt(owned.filter((n) => n.garrison > 0), f.from, (n) => `${n.name} (${n.garrison})`)}</select></label>`;
+        case 'to': return `<label class="field"><span>To</span><select data-f="to">${opt(owned, f.to, (n) => `${n.name} (${n.garrison})`)}</select></label>`;
+        case 'target': return `<label class="field"><span>Target</span><select data-f="target">${opt(targets, f.target, (n) => `${n.name} (${game.kname(n.owner)}, power ${fmt(game.defPower(n))})`)}</select></label>`;
+        case 'troops': case 'amount': return `<label class="field"><span>Troops</span><input type="number" min="1" data-f="${fl}" value="${f[fl] || (from ? from.garrison : '')}"></label>`;
+        case 'resource': return `<label class="field"><span>Raid for</span><select data-f="resource">${['wealth', 'food', 'res'].map((r) => `<option value="${r}" ${f.resource === r ? 'selected' : ''}>${r === 'res' ? 'resources' : r}</option>`).join('')}</select></label>`;
+        case 'batches': return `<label class="field"><span>Batches</span><select data-f="batches">${[1, 2].map((b) => `<option value="${b}" ${String(f.batches || 2) === String(b) ? 'selected' : ''}>${b} (${Math.floor(b * 10 * game.growthMult(kid))} soldiers)</option>`).join('')}</select></label>`;
+        case 'node': {
+          const list = f.type === 'hire' ? game.hireLocations(kid) : f.type === 'repair' ? owned.filter((n) => n.devastation > 0) : f.type === 'upgrade' ? owned.filter((n) => n.type !== 'capital' && !n.upgrade && n.tier < S.MAX_TIER[n.type]) : owned;
+          return `<label class="field"><span>Node</span><select data-f="node">${opt(list, f.node)}</select></label>`;
+        }
+        case 'food': {
+          const ic = game.cfg.importFood;
+          return `<label class="field"><span>Food per turn</span><select data-f="food">${Array.from({ length: ic.maxPerAction }, (_, i) => i + 1).map((x) => `<option value="${x}" ${String(f.food || ic.maxPerAction) === String(x) ? 'selected' : ''}>+${x} for ${ic.duration} turns (${x * ic.duration * ic.wealthPerFood} wealth)</option>`).join('')}</select></label>`;
+        }
+        case 'steps': return `<label class="field"><span>Resources</span><select data-f="steps">${[1, 2, 3].map((s) => `<option value="${s}" ${String(f.steps || 1) === String(s) ? 'selected' : ''}>${s * 10} (+${s} def)</option>`).join('')}</select></label>`;
+      }
+      return '';
+    }).join('');
+    const actionOpts = Object.keys(S.ACTION_LABELS).filter((a) => a !== 'pass' && (a !== 'heroic' || game.onlyCapital(kid)) && (a !== 'import_food' || game.cfg.importFood.enabled)).map((a) => `<option value="${a}" ${f.type === a ? 'selected' : ''}>${S.ACTION_LABELS[a]}</option>`).join('');
+    box.innerHTML = `<div class="panel manual stack">
+      <div><div class="label">Your turn · ${game.cur.actionsLeft} of ${game.cur.actionsTotal} action${game.cur.actionsTotal > 1 ? 's' : ''} left</div><h2>${esc(k.name)}</h2></div>
+      <div class="form-row"><label class="field"><span>Action</span><select id="mType">${actionOpts}</select></label>${fieldHtml}</div>
+      <div id="mPreview"></div>
+      <div class="error">${esc(state.formError)}</div>
+      <div class="form-row"><button class="primary" id="mAct">Take action</button><button id="mEnd">End turn</button></div>
+    </div>`;
+    $('mType').onchange = (e) => { state.form = { type: e.target.value }; state.formError = ''; renderManual(); };
+    box.querySelectorAll('[data-f]').forEach((el) => el.onchange = () => {
+      f[el.dataset.f] = el.value;
+      if (el.dataset.f === 'from') { f.target = ''; f.troops = ''; f.amount = ''; }
+      renderManual();
+    });
+    $('mAct').onclick = () => {
+      const a = Object.assign({}, f);
+      if (a.type === 'hire' && !a.batches) a.batches = 2;
+      if (a.type === 'fortify' && !a.steps) a.steps = 1;
+      if (a.type === 'raid' && !a.resource) a.resource = 'wealth';
+      if (a.type === 'import_food' && !a.food) a.food = game.cfg.importFood.maxPerAction;
+      if ((a.troops === '' || a.troops == null) && from) a.troops = from.garrison;
+      if ((a.amount === '' || a.amount == null) && from) a.amount = from.garrison;
+      try { game.act(a); state.form = { type: f.type }; state.formError = ''; } catch (e) { state.formError = e.message; }
+      renderAll();
+    };
+    $('mEnd').onclick = () => { game.skipActions(); state.form = {}; state.formError = ''; renderAll(); };
+    renderPreview(kid, f, from);
+  }
+  function renderPreview(kid, f, from) {
+    const t = game.N[f.target], el = $('mPreview');
+    if (!el) return;
+    if (!['capture', 'raid', 'heroic'].includes(f.type) || !from || !t) { el.innerHTML = ''; return; }
+    const troops = Math.floor(Number(f.troops || from.garrison));
+    if (!(troops >= 1)) { el.innerHTML = ''; return; }
+    const dp = game.defPower(t), cfg = game.cfg;
+    const r = f.type === 'raid' ? S.resolveRaid(cfg, troops, t.garrison, dp) : S.resolveCapture(cfg, troops, t.garrison, dp, f.type === 'heroic');
+    let extra = '';
+    if (f.type === 'raid' && r.win) {
+      const s = game.raidSteal(t, f.resource || 'wealth', r.survivors);
+      extra = ` Steals ${s.amount} ${f.resource === 'res' ? 'resources' : f.resource || 'wealth'} ${s.cap === Infinity ? '' : ` (cap ${s.cap})`}.`;
+    }
+    el.innerHTML = `<div class="preview">Attack power ${fmt(r.ap)} vs defender power ${fmt(dp)}: <strong>${r.win ? 'attacker wins' : 'defender holds'}</strong>. ${r.win ? `${r.survivors} of your troops survive` : `${r.survivors} retreat`}; defenders left: ${r.defenderRemaining}.${extra}</div>`;
+  }
+
+  // ---------- log ----------
+  function renderLog() {
+    const filt = $('logFilter').value;
+    const war = new Set(['capture', 'raid', 'fail', 'shortage', 'react']);
+    let rows = game.log;
+    if (filt === 'war') rows = rows.filter((l) => war.has(l.kind));
+    else if (filt === 'actions') rows = rows.filter((l) => l.kind !== 'phase');
+    rows = rows.slice(-300).reverse();
+    $('log').innerHTML = rows.length ? rows.map((l) => `<div class="row"><span class="r">R${l.round}</span><span class="stripe" style="background:${kcolor(l.kid)}"></span><span class="${l.kind}"><strong>${esc(game.kname(l.kid))}</strong> · ${esc(l.text)}</span></div>`).join('')
+      : '<p class="muted">Nothing yet. Press Next turn to start.</p>';
+  }
+
+  // ---------- charts ----------
+  function lineChart(series, opts) {
+    // series: [{color, name, values:[{x,y}]}]
+    const W = 640, H = opts.height || 220, L = 52, R = 12, T = 10, B = 26;
+    const xs = series.flatMap((s) => s.values.map((v) => v.x)), ys = series.flatMap((s) => s.values.map((v) => v.y));
+    if (!xs.length) return '<p class="muted">No rounds played yet.</p>';
+    const x0 = Math.min(...xs), x1 = Math.max(...xs, x0 + 1);
+    let y0 = Math.min(0, ...ys), y1 = Math.max(...ys, 1);
+    const step = niceStep((y1 - y0) / 4);
+    y0 = Math.floor(y0 / step) * step; y1 = Math.ceil(y1 / step) * step;
+    const sx = (x) => L + (x - x0) / (x1 - x0) * (W - L - R), sy = (y) => T + (1 - (y - y0) / (y1 - y0 || 1)) * (H - T - B);
+    let h = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(opts.label || 'chart')}">`;
+    for (let y = y0; y <= y1 + 1e-9; y += step) h += `<line class="grid" x1="${L}" x2="${W - R}" y1="${sy(y)}" y2="${sy(y)}"/><text x="${L - 6}" y="${sy(y) + 4}" text-anchor="end">${fmt(y)}</text>`;
+    const xstep = niceStep((x1 - x0) / 6) || 1;
+    for (let x = Math.ceil(x0 / xstep) * xstep; x <= x1; x += xstep) h += `<text x="${sx(x)}" y="${H - 8}" text-anchor="middle">${x}</text>`;
+    for (const s of series) {
+      if (!s.values.length) continue;
+      h += `<polyline fill="none" stroke="${s.color}" stroke-width="2.5" stroke-linejoin="round" points="${s.values.map((v) => sx(v.x).toFixed(1) + ',' + sy(v.y).toFixed(1)).join(' ')}"/>`;
+      const last = s.values[s.values.length - 1];
+      h += `<circle cx="${sx(last.x)}" cy="${sy(last.y)}" r="3.5" fill="${s.color}"/>`;
+    }
+    h += '</svg>';
+    h += `<div class="legend">${series.map((s) => `<span><span class="swatch" style="display:inline-block;background:${s.color}"></span> ${esc(s.name)}</span>`).join('')}</div>`;
+    return h;
+  }
+  function niceStep(raw) {
+    if (!(raw > 0)) return 1;
+    const p = Math.pow(10, Math.floor(Math.log10(raw))), m = raw / p;
+    return (m <= 1 ? 1 : m <= 2 ? 2 : m <= 5 ? 5 : 10) * p;
+  }
+  function renderChart() {
+    const m = $('chartMetric').value;
+    $('chart').innerHTML = lineChart(game.kingdoms.map((k) => ({ color: k.color, name: k.name, values: game.history.map((r) => ({ x: r.round, y: r.k[k.id][m] })) })), { label: m });
+  }
+
+  // ---------- batch ----------
+  $('btnBatch').onclick = runBatch;
+  function runBatch() {
+    const games = Math.max(1, Number($('bGames').value) || 100), rounds = Math.max(1, Number($('bRounds').value) || 40);
+    const seed0 = Number($('bSeed').value) || 1, noise = Math.max(0, Number($('bNoise').value) || 0);
+    const cfg = S.deepMerge(state.config, { ai: { noise } });
+    const sc = S.clone(state.scenario);
+    sc.kingdoms.forEach((k) => { if (k.ai === 'manual') k.ai = 'balanced'; });
+    const ids = sc.kingdoms.map((k) => k.id);
+    const agg = {};
+    for (const id of ids) agg[id] = { lead: 0, nodes: 0, army: 0, food: 0, wealth: 0, res: 0, capT: 0, capW: 0, raidT: 0, raidW: 0, hired: 0, lost: 0, starved: 0, fShort: 0, wShort: 0, buffs: 0, turns: 0, acts: {}, curve: { nodes: [], army: [], food: [], wealth: [], res: [], foodNet: [], wealthNet: [] } };
+    let done = 0;
+    $('btnBatch').disabled = true;
+    const t0 = performance.now();
+    function chunk() {
+      const end = Math.min(games, done + 20);
+      for (; done < end; done++) {
+        const g = new S.Game(sc, cfg, { seed: seed0 + done, maxRounds: rounds, quiet: true });
+        for (let i = 0; i < rounds; i++) g.runRound();
+        const counts = ids.map((id) => g.ownedNodes(id).length), best = Math.max(...counts);
+        const leaders = ids.filter((id, i) => counts[i] === best);
+        for (const id of ids) {
+          const a = agg[id], k = g.K[id], s = k.stats;
+          if (leaders.includes(id)) a.lead += 1 / leaders.length;
+          a.nodes += g.ownedNodes(id).length; a.army += g.army(id); a.food += k.food; a.wealth += k.wealth; a.res += k.res;
+          a.capT += s.capturesTried; a.capW += s.capturesWon; a.raidT += s.raidsTried; a.raidW += s.raidsWon;
+          a.hired += s.hired; a.lost += s.battleLosses; a.starved += s.shortageLosses; a.fShort += s.foodShortTurns; a.wShort += s.wealthShortTurns;
+          a.buffs += s.buffs; a.turns += s.turns;
+          for (const [t, n] of Object.entries(s.actions)) a.acts[t] = (a.acts[t] || 0) + n;
+          g.history.forEach((row, i) => { for (const m of Object.keys(a.curve)) a.curve[m][i] = (a.curve[m][i] || 0) + row.k[id][m]; });
+        }
+      }
+      $('bProg').style.width = (done / games * 100) + '%';
+      if (done < games) setTimeout(chunk, 0);
+      else { $('btnBatch').disabled = false; renderBatch(agg, sc, games, rounds, performance.now() - t0); }
+    }
+    chunk();
+  }
+  const ACTION_COLORS = { produce: '#8A9A5B', upgrade: '#5B8A9A', hire: '#9A5B7E', capture: '#B13A2D', raid: '#D08A3A', heroic: '#7A2E9A', fortify: '#4F6B8F', reinforce_border: '#6E7F99', send: '#9A8F5B', repair: '#5B9A75', import_food: '#C2A23A' };
+  function renderBatch(agg, sc, games, rounds, ms) {
+    const ks = sc.kingdoms;
+    const per = (v) => fmt(v / games);
+    const pct = (a, b) => (b ? Math.round(a / b * 100) + '%' : '–');
+    let t1 = `<div class="panel stack"><h2>Results over ${games} games of ${rounds} rounds</h2><p class="muted" style="margin:0">Averages per game. Ran in ${Math.round(ms)} ms. "Leads" = share of games where the kingdom ended holding the most nodes (ties split).</p><div class="table-wrap"><table>
+      <tr><th>Kingdom</th><th>Leads</th><th>Nodes</th><th>Army</th><th>Food</th><th>Wealth</th><th>Res</th><th>Captures (won/tried)</th><th>Raids (won/tried)</th><th>Hired</th><th>Lost in battle</th><th>Lost to shortage</th><th>Shortage turns</th><th>Buffs</th></tr>`;
+    for (const k of ks) {
+      const a = agg[k.id];
+      t1 += `<tr><td><span class="swatch" style="display:inline-block;background:${k.color}"></span> ${esc(k.name)} <span class="muted">(${k.growth}, ${k.ai})</span></td><td>${pct(a.lead, games)}</td><td>${per(a.nodes)}</td><td>${per(a.army)}</td><td>${per(a.food)}</td><td>${per(a.wealth)}</td><td>${per(a.res)}</td><td>${per(a.capW)} / ${per(a.capT)}</td><td>${per(a.raidW)} / ${per(a.raidT)}</td><td>${per(a.hired)}</td><td>${per(a.lost)}</td><td>${per(a.starved)}</td><td>${pct(a.fShort + a.wShort, a.turns)}</td><td>${per(a.buffs)}</td></tr>`;
+    }
+    t1 += '</table></div></div>';
+    let t2 = `<div class="panel stack"><h2>What each kingdom spent its actions on</h2><div class="table-wrap"><table><tr><th>Kingdom</th><th style="text-align:left">Mix</th>${Object.keys(S.ACTION_LABELS).map((a) => `<th>${S.ACTION_LABELS[a]}</th>`).join('')}</tr>`;
+    for (const k of ks) {
+      const a = agg[k.id], tot = Object.values(a.acts).reduce((x, y) => x + y, 0) || 1;
+      t2 += `<tr><td>${esc(k.name)}</td><td><div class="bar">${Object.keys(S.ACTION_LABELS).map((t) => a.acts[t] ? `<span title="${S.ACTION_LABELS[t]}" style="width:${a.acts[t] / tot * 100}%;background:${ACTION_COLORS[t]}"></span>` : '').join('')}</div></td>${Object.keys(S.ACTION_LABELS).map((t) => `<td>${pct(a.acts[t] || 0, tot)}</td>`).join('')}</tr>`;
+    }
+    t2 += `</table></div><div class="legend">${Object.keys(S.ACTION_LABELS).map((t) => `<span><span class="swatch" style="display:inline-block;background:${ACTION_COLORS[t]}"></span> ${S.ACTION_LABELS[t]}</span>`).join('')}</div></div>`;
+    const t3 = `<div class="panel chart stack"><div class="form-row" style="justify-content:space-between"><h2>Average by round</h2>
+      <select id="bMetric" aria-label="Batch chart metric"><option value="nodes">Nodes held</option><option value="army">Army size</option><option value="food">Food stockpile</option><option value="wealth">Wealth stockpile</option><option value="res">Resource stockpile</option><option value="foodNet">Net food per turn</option><option value="wealthNet">Net wealth per turn</option></select></div><div id="bChart"></div></div>`;
+    $('batchOut').innerHTML = t1 + t3 + t2;
+    const draw = () => {
+      const m = $('bMetric').value;
+      $('bChart').innerHTML = lineChart(ks.map((k) => ({ color: k.color, name: k.name, values: agg[k.id].curve[m].map((v, i) => ({ x: i, y: v / games })) })), { label: m, height: 240 });
+    };
+    $('bMetric').onchange = draw; draw();
+  }
+
+  // ---------- calculator ----------
+  ['cMode', 'cTroops', 'cType', 'cTier', 'cGar', 'cDef', 'cMor'].forEach((id) => $(id).addEventListener('input', renderCalc));
+  function renderCalc() {
+    const cfg = S.deepMerge(state.config, {});
+    const calc = Object.create(S.Game.prototype); calc.cfg = cfg;
+    const type = $('cType').value;
+    let tier = Math.max(0, Math.min(S.MAX_TIER[type], Number($('cTier').value) || 0));
+    if (type === 'capital') tier = cfg.capitalTier;
+    const node = { type, tier, garrison: Math.max(0, Number($('cGar').value) || 0), defense: Math.max(0, Number($('cDef').value) || 0), morale: Math.max(1, Math.min(10, Number($('cMor').value) || 10)), devastation: 0 };
+    if (type === 'capital') node.morale = 10;
+    const mode = $('cMode').value, troops = Math.max(1, Number($('cTroops').value) || 1);
+    const fd = calc.finalDefense(node), dp = S.defenderPower(cfg, node.garrison, fd);
+    const resolve = (t) => (mode === 'raid' ? S.resolveRaid(cfg, t, node.garrison, dp) : S.resolveCapture(cfg, t, node.garrison, dp, mode === 'heroic'));
+    const r = resolve(troops);
+    const capped = Math.min(node.defense, calc.defCap(node));
+    let steal = '';
+    if (mode === 'raid' && r.win && type !== 'outpost') {
+      const b = calc.baseOutput(node), rc = cfg.raid;
+      const capOf = (out) => (rc.maxTurns > 0 ? out * rc.maxTurns : Infinity);
+      steal = `<dt>Could steal</dt><dd>${Math.min(Math.floor(r.survivors * rc.wealthPer), capOf(b.wealth))} wealth, or ${Math.min(Math.floor(r.survivors * rc.foodPer), capOf(b.food))} food, or ${Math.min(Math.floor(r.survivors * rc.prodPer), capOf(b.prod))} resources (${rc.maxTurns > 0 ? `capped at ${rc.maxTurns} turns of this node's output, and ` : 'no cap, only limited '}by the defender's stockpile)</dd>
+        <dt>Devastation added</dt><dd>${Math.min(rc.devMax, rc.devPer10 * Math.floor(r.survivors / 10))}</dd>`;
+    }
+    const note = mode === 'capture' && type === 'capital' ? '<p class="error">Capitals cannot be captured; only raided.</p>' : '';
+    $('calcOut').innerHTML = `${note}<dl class="kv">
+      <dt>Final defense</dt><dd>min(${node.defense}, cap ${calc.defCap(node)}) = ${capped} × ${calc.defMult(node)}${type === 'castle' ? ` (max ${cfg.castleMaxDef})` : ''} × ${node.morale}/10 = ${fmt(fd)}</dd>
+      <dt>Defender power</dt><dd>${node.garrison} × (1 + ${fmt(fd)}/${cfg.combat.defDivisor}) + ${fmt(fd)} = ${fmt(dp)}</dd>
+      <dt>Attacker power</dt><dd>${troops}${mode === 'heroic' ? ` × ${cfg.combat.heroicMult}` : ''} = ${fmt(r.ap)}</dd>
+      <dt>Result</dt><dd><strong>${r.win ? 'Attacker wins' : 'Defender holds'}</strong></dd>
+      <dt>Attacker</dt><dd>${r.survivors} ${r.win ? 'survive' : 'retreat'}, ${r.attackerLosses} lost</dd>
+      <dt>Defender</dt><dd>${r.defenderRemaining} left of ${node.garrison}${mode === 'raid' && r.win ? ` (raids cap damage at ${cfg.raid.garrisonDmg * 100}%)` : ''}</dd>
+      ${steal}
+      <dt>Troops needed to win</dt><dd>${mode === 'heroic' ? Math.floor(dp / cfg.combat.heroicMult) + 1 : Math.floor(dp) + 1}</dd>
+    </dl>`;
+    const maxT = Math.max(troops * 2, Math.ceil(dp * 2.2), 10);
+    const pts = [], pts2 = [];
+    for (let t = 1; t <= maxT; t += Math.max(1, Math.floor(maxT / 120))) { const x = resolve(t); pts.push({ x: t, y: x.win ? x.survivors : 0 }); pts2.push({ x: t, y: x.defenderRemaining }); }
+    $('calcChart').innerHTML = '<h3 style="margin-top:8px">Outcome by number of attackers</h3>' + lineChart([{ color: 'var(--accent)', name: 'Attackers surviving a win', values: pts }, { color: 'var(--bad)', name: 'Defenders remaining', values: pts2 }], { label: 'Outcome by attackers' });
+  }
+
+  // ---------- rules / config ----------
+  const HELP = {
+    'town.wealth': 'T1 town wealth (already includes the 2× town bonus)', 'town.wealthMult': 'extra multiplier on town wealth',
+    'town.defPerTier': 'town defense cap = tier × this', capitalTier: 'capitals count as this town tier',
+    castleMaxDef: 'final castle defense ceiling', 'resource.defCap': 'food/production defense cap', 'resource.garrisonCap': 'food/production garrison cap',
+    'outpost.warnMove': 'troops a watchtower warning can move', shortagePenalty: 'garrison lost per shortage per turn',
+    capitalOnlyGrowthMult: 'growth × when only the capital is held', 'buff.costTurns': 'cost in turns of gross wealth income',
+    'combat.defDivisor': 'Garrison × (1 + Def / this) + Def', 'combat.retreat': 'share of attackers that retreat after a loss',
+    'raid.maxTurns': 'steal cap in turns of node output (0 = no cap)', 'raid.garrisonDmg': 'max share of garrison a raid kills',
+    'reinforceBorder.neutralIsHostile': 'neutral neighbours count as hostile borders', repairCost: 'resources per 1.0 devastation', 'wealthTax.rate': 'share of wealth above the tax-free amount lost each upkeep (0 = off)', 'wealthTax.free': 'wealth kept untaxed', freeRebuildOnCapture: 'a node captured as a ruin rebuilds to T1 next turn, free and without an action',
+    baseActions: 'actions each kingdom takes per turn, before castle bonuses', bonusActionCastleTier: 'castle tier that grants an extra action', turnOrder: 'fixed, rotate or random',
+    'ai.noise': 'random spread on AI choices', 'ai.horizon': 'turns the AI plans ahead', 'ai.soldierValue': 'how much the AI values one soldier (in wealth)',
+    'produce.payout': 'share of one turn of node output paid out (0.5 = 50%)', 'importFood.wealthPerFood': 'wealth per 1 food delivered', 'importFood.maxPerAction': 'most food per turn one contract can add', 'importFood.duration': 'turns a contract delivers food', 'importFood.enabled': 'allow the Import food action',
+    'ai.foodValue': 'wealth value of 1 food to the AI', 'ai.resValue': 'wealth value of 1 resource to the AI',
+  };
+  const P_HELP = {
+    aggr: 'weight on capturing', raid: 'weight on raiding (0 = never)', def: 'weight on defending', econ: 'weight on building and producing', mil: 'weight on hiring',
+    margin: 'attack only when power > defender × this', raidMargin: 'same, for raids (0 = use margin)', armyRatio: 'army wanted vs enemy troops on borders', minArmy: 'smallest army it settles for',
+    targets: 'any, avoidMonsters (only weakened monster nodes), playerOnly, home (only its own home nodes), raze (home nodes plus the kingdom\'s foes)', reserveMult: 'how much of a threatened garrison stays home', capitalReserve: 'troops always kept in the capital',
+    retake: 'value × on nodes it lost', secureNew: '1 = fortify new conquests before expanding again', fortifyAttacked: 'defense focus × on nodes attacked in the last 2 rounds',
+    homeRadius: 'steps from the capital counted as home (0 = off)', homeBias: 'priority × for capturing and fortifying home', upgradeAway: '0 = never upgrade land outside home past T1',
+    wealthRaidBias: 'value × on stolen wealth', burst: '1 = mass in capital, then strike player land', burstRatio: 'capital army ÷ weakest player node needed to strike',
+    rebalance: '1 = move troops to where threats are', leaveBehind: 'troops left in towns, castles and the capital when attacking', landValue: 'how much it values holding territory',
+    counter: '1 = when attacked, push towards the attacker\'s capital and raid it; fall back after a lost or losing fight',
+    warOnly: '1 = only ever captures or raids, including fights it will lose', warHire: '1 = a war-only faction may also hire', raze: '1 = values captures by the tier knocked off, never upgrades taken land and brings the army home after',
+  };
+  const humanize = (k) => k.replace(/([A-Z])/g, ' $1').replace(/^./, (c) => c.toUpperCase());
+  function cfgInput(path, v) {
+    if (/\.targets$/.test(path)) return `<select data-path="${path}">${['any', 'avoidMonsters', 'playerOnly', 'home', 'raze'].map((o) => `<option ${v === o ? 'selected' : ''}>${o}</option>`).join('')}</select>`;
+    if (path === 'turnOrder') return `<select data-path="${path}">${['fixed', 'rotate', 'random'].map((o) => `<option ${v === o ? 'selected' : ''}>${o}</option>`).join('')}</select>`;
+    if (typeof v === 'boolean') return `<input type="checkbox" data-path="${path}" ${v ? 'checked' : ''}>`;
+    return `<input type="number" step="any" data-path="${path}" value="${v}">`;
+  }
+  function renderCfg() {
+    const c = state.config;
+    let h = '';
+    const simple = [];
+    for (const [key, v] of Object.entries(c)) {
+      if (key === 'ai') continue;
+      if (Array.isArray(v) && typeof v[0] === 'object') {
+        h += `<fieldset><legend>${humanize(key)} by tier</legend><div class="table-wrap"><table><tr><th>Tier</th>${Object.keys(v[0]).map((f) => `<th>${humanize(f)}</th>`).join('')}</tr>${v.map((row, i) => `<tr><td>T${i} ${esc((S.TIER_NAMES[key] || [])[i] || '')}</td>${Object.entries(row).map(([f, x]) => `<td>${cfgInput(`${key}.${i}.${f}`, x)}</td>`).join('')}</tr>`).join('')}</table></div></fieldset>`;
+      } else if (Array.isArray(v)) {
+        const tn = key === 'foodNode' ? S.TIER_NAMES.food : S.TIER_NAMES.production;
+        h += `<fieldset><legend>${humanize(key)} output by tier</legend>${v.map((x, i) => `<div class="cfg-row"><span>T${i} ${esc(tn[i] || '')}</span>${cfgInput(`${key}.${i}`, x)}</div>`).join('')}</fieldset>`;
+      } else if (typeof v === 'object') {
+        h += `<fieldset><legend>${humanize(key)}</legend>${Object.entries(v).map(([f, x]) => `<div class="cfg-row"><span>${humanize(f)}${HELP[key + '.' + f] ? `<br><span class="help">${HELP[key + '.' + f]}</span>` : ''}</span>${cfgInput(`${key}.${f}`, x)}</div>`).join('')}</fieldset>`;
+      } else simple.push([key, v]);
+    }
+    h = `<fieldset><legend>General</legend>${simple.map(([key, v]) => `<div class="cfg-row"><span>${humanize(key)}${HELP[key] ? `<br><span class="help">${HELP[key]}</span>` : ''}</span>${cfgInput(key, v)}</div>`).join('')}</fieldset>` + h;
+    const ai = c.ai;
+    h += `<fieldset><legend>AI</legend>${['noise', 'horizon', 'soldierValue', 'foodValue', 'resValue'].map((f) => `<div class="cfg-row"><span>${humanize(f)}<br><span class="help">${HELP['ai.' + f] || ''}</span></span>${cfgInput('ai.' + f, ai[f])}</div>`).join('')}</fieldset>`;
+    const names = Object.keys(ai.personalities), pf = Object.keys(S.PERSONALITY_DEFAULTS);
+    h += `<fieldset style="grid-column:1/-1"><legend>AI personalities and faction behaviours</legend><div class="table-wrap"><table><tr><th>Setting</th>${names.map((n) => `<th>${esc(n)}</th>`).join('')}</tr>${pf.map((f) => `<tr><td>${humanize(f)}<br><span class="help muted">${esc(P_HELP[f] || '')}</span></td>${names.map((n) => { const p = ai.personalities[n]; return `<td>${cfgInput(`ai.personalities.${n}.${f}`, p[f] != null ? p[f] : S.PERSONALITY_DEFAULTS[f])}</td>`; }).join('')}</tr>`).join('')}</table></div></fieldset>`;
+    $('cfg').innerHTML = h;
+  }
+  $('cfg').addEventListener('change', (e) => {
+    const el = e.target, path = el.dataset.path; if (!path) return;
+    const parts = path.split('.');
+    let o = state.config;
+    for (let i = 0; i < parts.length - 1; i++) o = o[parts[i]];
+    const last = parts[parts.length - 1];
+    o[last] = el.type === 'checkbox' ? el.checked : el.tagName === 'SELECT' ? el.value : Number(el.value);
+  });
+  $('btnApplyCfg').onclick = () => { persist(); newGame(); flash($('btnApplyCfg'), 'Applied'); };
+  $('btnResetCfg').onclick = () => { state.config = S.clone(S.DEFAULT_CONFIG); renderCfg(); persist(); newGame(); flash($('btnResetCfg'), 'Restored'); };
+  function flash(btn, text) { const t = btn.textContent; btn.textContent = text; setTimeout(() => { btn.textContent = t; }, 1200); }
+
+  function renderMapJson() { $('mapJson').value = JSON.stringify(state.scenario, null, 1); $('mapErr').textContent = ''; }
+  $('btnApplyMap').onclick = () => {
+    try {
+      const sc = JSON.parse($('mapJson').value);
+      if (!Array.isArray(sc.kingdoms) || !Array.isArray(sc.nodes) || !Array.isArray(sc.edges)) throw new Error('Needs kingdoms, nodes and edges arrays.');
+      for (const k of sc.kingdoms) if (!sc.nodes.some((n) => n.owner === k.id && n.type === 'capital')) throw new Error(`${k.name || k.id} has no capital node.`);
+      new S.Game(sc, state.config, { seed: 1 });
+      state.scenario = sc; persist(); newGame(); renderMapJson(); flash($('btnApplyMap'), 'Applied');
+    } catch (e) { $('mapErr').textContent = 'Could not load this map: ' + e.message; }
+  };
+  $('btnSnapMap').onclick = () => {
+    const sc = {
+      name: (state.scenario.name || 'Map') + ' (round ' + game.round + ')',
+      kingdoms: game.kingdoms.map((k) => ({ id: k.id, name: k.name, color: k.color, growth: k.growth, ai: k.ai, goblinRule: k.goblinRule, food: k.food, wealth: k.wealth, res: k.res })),
+      nodes: game.nodes.map((n) => { const o = Object.assign({}, n); if (!o.upgrade) delete o.upgrade; return o; }),
+      edges: state.scenario.edges,
+    };
+    $('mapJson').value = JSON.stringify(sc, null, 1);
+    $('mapErr').textContent = 'Loaded the current game state. Press Apply to start from it.';
+  };
+  $('btnCopyMap').onclick = () => {
+    const ta = $('mapJson');
+    navigator.clipboard.writeText(ta.value).then(() => flash($('btnCopyMap'), 'Copied'), () => { ta.focus(); ta.select(); });
+  };
+  $('presetMap').innerHTML = Object.entries(window.SCENARIOS).map(([id, sc]) => `<option value="${id}">${esc(sc.name)}</option>`).join('');
+  $('presetMap').value = 'large';
+  $('btnResetMap').onclick = () => { state.scenario = S.clone(window.SCENARIOS[$('presetMap').value]); persist(); renderMapJson(); newGame(); flash($('btnResetMap'), 'Loaded'); };
+
+  const NOTES = [
+    'Turn order inside a round rotates each round (configurable). Each kingdom: morale recovers +1 on its nodes, production, optional growth buff, upkeep, upgrades tick, then actions: 2 per turn (Base actions under General), plus 1 for each Tier 3 castle.',
+    'The large continent (the default map) was generated from the original one: every original node is kept and spread out, each faction\'s homeland has 7 more nodes, neutral land fills the gaps, and roads link nearby nodes without crossing. The Dwarves\' four resource nodes touch only their capital. The original 48-node maps are still in the preset list.',
+    'The Tier 1 town values (2 food, 100 wealth, 4 production) are taken as already including the 2× town wealth bonus. Set "Wealth mult" to 2 to apply it on top.',
+    'Devastation reduces positive output only. The fixed food cost of castles and watchtowers is not reduced by devastation.',
+    'A shortage happens when upkeep would push food or wealth below zero. The stockpile is set to 0 and the largest garrison loses 10 per shortage (20 if both).',
+    'The growth buff costs 2× this turn\'s gross wealth income and must be affordable from the stockpile after production but before upkeep. It counts down at the end of each of the owner\'s upkeep phases, so it covers 5 of that kingdom\'s turns.',
+    'Hiring: the 2-batch limit and cost apply before growth. Soldiers = batches × 10 × growth, rounded down, so Slow growth gets 5 per batch.',
+    'Attacks use troops from one adjacent garrison. On a capture the survivors become the new garrison; survivors beyond a resource node\'s or outpost\'s garrison cap of 10 return to the node they attacked from.',
+    'Morale: the target always loses 2 for being attacked. If the attack fails, the attacker\'s source node loses 2. A defender that loses a raid loses 2 more. A captured node resets to morale 3. Morale never drops below 1, and capitals stay at 10.',
+    'Raid survivors are rounded down. By default a raid has no steal cap: it takes 0.5 food, 10 wealth or 1 resource per surviving attacker, limited only by what the defender has. Setting "Max turns" under Raid brings back the ruleset\'s cap of that many turns of the node\'s output (the ruleset text says 2). Raiding an outpost steals nothing. Neutral nodes cannot be raided.',
+    'Failed raids use the failed-capture formulas for both sides.',
+    'The watchtower warning is applied automatically: when a watchtower is attacked, the defender moves up to 10 troops from its largest other garrison to its weakest node next to the watchtower.',
+    'Upgrades take 1 + 2 × new tier of the owner\'s turns, counted down in the upgrade phase. A node that is upgrading cannot be fortified, repaired or reinforced. Capturing an upgrading node cancels the upgrade.',
+    'Free rebuild on capture: a node that is a ruin (T0) after being captured, including a T1 node knocked down by the capture, starts a free upgrade to T1 that costs no action or stockpile and completes in the new owner\'s next turn. Turn it off under General.',
+    "Produce Resources pays 50% (configurable) of the nodes' current per-turn output, after devastation. Imported food is not included, and negative net food counts as 0.",
+    "Import food is an action: pay food × turns × 50 wealth up front, receive that food in each of your next 5 production phases. Contracts stack, and imported food counts as food income, including for the \"won't hire into negative food\" rule. Losing nodes does not cancel a contract.",
+    'Reinforce border treats only nodes owned by other kingdoms as hostile, not neutral nodes (configurable).',
+    'The AI sees every node\'s stats, so watchtower intel has no effect on AI decisions.',
+    'The "won\'t hire into negative food" rule is applied by the AI. When you play a kingdom yourself, nothing stops you, so you can test what happens.',
+    'Faction behaviours from kingdom-behaviour.txt are AI personalities you can tune on this tab. Combat has no dice, so a "toss up" for the Goblins means attacking whenever the battle is winnable at all.',
+    "Goblins only attack other monsters when the target is weakened: morale 5 or lower, devastation 0.3 or more, or an attack with at least twice the defender's power.",
+    'Orc strength bonus: the document asks for one without a number. It is modelled as troop strength ×1.25, multiplying Orc troops in attack and defense (the strength field on the kingdom in the map JSON). To balance it, Orc upkeep is ×1.5 (1.5 food and 150 wealth per batch, rounded up; the upkeepMult field).',
+    'Kobold troop quality (weak low-tier troops, dragons at high tier) is not modelled; Kobolds use normal troop strength.',
+    'The Kobold "area surrounding the capital" is every node within 2 steps of it. Outside that area they rebuild ruins but never upgrade further.',
+    'Elementals only capture their own home nodes (the nodes they own in the settled start) and value retaking them twice as much. When any kingdom captures or raids one of their nodes, they counter-attack: the largest Elemental garrison captures its way along the shortest path towards that kingdom\'s capital, then raids the capital for wealth. The counter-attack ends, and the army returns to the Elemental capital, after any lost fight or when the next fight would be lost.',
+    'Orcs only ever capture, raid or hire (no building or fortifying) and attack even when the fight will be lost, with every troop and no reserve. With nothing else available they spend the action idle.',
+    'Dwarves (the "with Dwarves" preset) have slow growth and sit in their capital in the north-east corner. They take the two resource nodes behind it, which only the capital touches. They attack Orc and Goblin nodes on any shared border when they can win with a 1.2× margin, valuing a capture by the tier it knocks off. They don\'t get the free rebuild on land they take and never upgrade it, and they send the troops left there back to the capital.',
+    'Elementals have normal growth and fight at ×1.5 troop strength when defending one of their own home nodes (the homeDefStrength field on the kingdom; a node\'s home is the faction that owns it in the settled start).',
+    'Undead raise dead: after any capture or raid they fight in, attacking or defending, they gain 25% of the battle\'s total casualties (both sides, rounded down). Raised troops join the Undead force at that node; if the Undead lost the node, they rise at its strongest adjacent Undead node or the capital. Set raiseDead on the kingdom in the map JSON.',
+    'The Undead AI attacks whenever a battle is winnable and counts raised troops as offsetting its losses, so it captures and raids far more readily than other factions. Growth is normal until a rate is decided.',
+    'Hearthbound try to hold as much land as possible: territory is worth twice as much to them, they fortify new conquests before pushing on, retake lost nodes eagerly, move troops to wherever threats are, and keep at least 8 troops in towns, castles and the capital.',
+  ];
+  $('notes').innerHTML = NOTES.map((n) => `<li>${esc(n)}</li>`).join('');
+
+  renderCfg();
+  renderMapJson();
+  newGame();
+})();
+</script>
