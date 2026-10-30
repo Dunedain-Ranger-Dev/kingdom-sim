@@ -43,6 +43,9 @@ Kingdoms:
 				- Low tier kobold troops are weak, high tier ones are dragons
 			- Fortifies locations surrounding capital, then raids for resources on any nearby nodes when success is almost guaranteed
 			- Will capture land beyond the immediate capital surroundings, but then will leave that territory low tier and focus on bringing back gold to the capital
+			- Tithes a fifth of its gold income into the dragon's hoard; once it holds 12,000, Azhvorrath lets her brood loose (see kingdom-stats):
+				- Troops count double, and the Kobolds turn hyper-aggressive: they attack at a 35% chance of winning or better, want an army twice the enemy troops on their borders, keep little back and raid for gold
+				- If raids take the hoard below 12,000, the brood goes back to sleep and the Kobolds return to their cautious ways until it's full again
 	- Undead
 		- Capital: Morvane
 			- Description: A sunken necropolis in the Blightmarsh, half-swallowed by black water. It was once a city of a civilization that fell long before the exiles arrived.
@@ -52,7 +55,8 @@ Kingdoms:
 			- Description: Once Caelith’s sworn champion and now an armored revenant who cannot rest until his oath is fulfilled. He’s relentless and nearly silent. Lore hints may reveal fragments of the man he was.
 		- Behaviour:
 			- Average growth rate
-			- Raise Dead: gains 25% of every battle's total casualties as new soldiers, whether attacking or defending (see kingdom-stats)
+			- Raise Dead: gains 40% of every battle's total casualties as new soldiers, whether attacking or defending (see kingdom-stats)
+			- Hard to wear down: troops count as 1.5x their number when defending, so attacks on them cost dearly and raise more dead
 			- Attacks basically any time a battle can be won, because every battle it fights raises some of the dead
 				- Counts the raised troops as offsetting its own losses when deciding whether a fight is worth it
 	- Elementals
@@ -100,6 +104,7 @@ Kingdoms:
 		- Target tier 3: Hearthbound, Kobolds, Elementals, Dwarves; tier 2: Goblins, Undead; Orcs don't build up their land
 	- How sure each faction wants to be of winning before it attacks (battles roll dice, see kingdom-stats):
 		- Undead 35%, Goblins 50% (60% for raids), Elementals 65%, Hearthbound 70% (75% for raids), Kobolds 85% (90% for raids), Dwarves 90%, Orcs 20%
+	- Every faction values raiding the dragon's hoard at twice the gold it takes, since it also keeps the brood asleep
 	- Every faction leaves at least 5 troops on any node that borders land it doesn't hold when it attacks out of it or moves troops away, so its land isn't left empty for anyone to walk into
 		- Orcs leave 2, so the land they pass through is relatively undefended
 	- Map: the continent has about 100 nodes. The Hearthbound hold the southern coast, the Undead the Blightmarsh in the centre, the Elementals the west, the Kobolds the north-west peaks, the Orcs the northern steppe, the Goblins the east, and the Dwarves the north-east corner. Neutral land fills the gaps between them.

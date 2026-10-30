@@ -517,12 +517,18 @@ final class GameAi {
                         }
                         String bestRes = null;
                         double bestVal = 0;
-                        for (String res : new String[] { "food", "gold", "res" }) {
+                        // A dragon's hoard can be raided from the capital that keeps it.
+                        boolean hoard = t.type == NodeType.CAPITAL && g.hoards(g.K.get(t.owner)) && g.K.get(t.owner).hoard > 0;
+                        for (String res : hoard ? new String[] { "food", "gold", "res", "hoard" } : new String[] { "food", "gold", "res" }) {
                             Game.Steal s = g.raidSteal(t, res, lootTroops);
-                            double val = v.full(new Output("food".equals(s.key()) ? s.amount() : 0, "gold".equals(s.key()) ? s.amount() : 0,
+                            boolean gold = "gold".equals(s.key()) || "hoard".equals(s.key());
+                            double val = v.full(new Output("food".equals(s.key()) ? s.amount() : 0, gold ? s.amount() : 0,
                                     "res".equals(s.key()) ? s.amount() : 0));
                             if (res.equals("gold")) {
                                 val *= p.goldRaidBias;
+                            }
+                            if (res.equals("hoard")) {
+                                val *= p.hoardRaidBias; // taking it also keeps the brood asleep
                             }
                             if (bestRes == null || val > bestVal) {
                                 bestRes = res;

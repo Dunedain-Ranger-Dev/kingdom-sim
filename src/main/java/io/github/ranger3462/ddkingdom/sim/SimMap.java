@@ -49,6 +49,8 @@ public final class SimMap {
         public boolean noFreeRebuild;
         /** Its captures always knock a node down a tier, whatever the rules say (the Dwarves). */
         public boolean razes;
+        /** It can Unleash the brood (Rules.Brood): the Kobolds. */
+        public boolean brood;
         /** Rounds a counter-attacking kingdom builds up at home before giving the grudge up (0: none). */
         public int counterPatience;
     }

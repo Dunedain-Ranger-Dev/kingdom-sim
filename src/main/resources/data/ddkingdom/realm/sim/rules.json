@@ -121,6 +121,13 @@
     "neutralIsHostile": false
   },
   "repairCost": 100,
+  "brood": {
+    "enabled": true,
+    "gold": 12000,
+    "strength": 2,
+    "personality": "dragon",
+    "tithe": 0.2
+  },
   "train": {
     "enabled": false,
     "gold": 1000,
@@ -332,6 +339,21 @@
         "developTier": 3,
         "developExpand": 0.2,
         "developBonus": 1000
+      },
+      "dragon": {
+        "aggr": 2.5,
+        "raid": 1.5,
+        "def": 0.6,
+        "econ": 0.5,
+        "mil": 1.8,
+        "margin": 1.1,
+        "raidMargin": 1.1,
+        "armyRatio": 2,
+        "minArmy": 60,
+        "reserveMult": 0.3,
+        "goldRaidBias": 1.5,
+        "minWin": 0.35,
+        "guardMult": 0.6
       },
       "undead": {
         "aggr": 1.875,

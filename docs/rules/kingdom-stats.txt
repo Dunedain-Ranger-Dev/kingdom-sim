@@ -27,11 +27,18 @@ Kingdom Stats:
 			- Troop strength
 				- Orc troops count as 1.25x their number, both when attacking and when defending
 				- Elemental troops count as 1.5x their number when defending one of their home nodes
+				- Undead troops count as 1.5x their number when defending, anywhere
 				- Strength multiplies a side's troop count in the combat formulas, and surviving troops are divided by it again to get the number of soldiers left
 			- Raise Dead (Undead only)
-				- After any Capture or Raid the Undead fight in, attacking or defending, they gain 25% of the battle's total casualties (both sides combined, rounded down) as new soldiers
+				- After any Capture or Raid the Undead fight in, attacking or defending, they gain 40% of the battle's total casualties (both sides combined, rounded down) as new soldiers
 				- Raised troops join the Undead force at that node; if the Undead lost the node, they rise at their strongest adjacent node, or the capital if there is none
 				- Garrison caps still apply, and any overflow goes to the capital
+			- Dragon's Hoard (Kobolds only; this whole event can be turned off)
+				- Each turn, 20% of the gold the Kobolds' nodes produce goes into the dragon's hoard instead of their stockpile, until the hoard holds 12,000
+					- The hoard can't be spent, and the gold tax doesn't touch it
+				- While the hoard holds 12,000, the dragon has let her brood loose: Kobold troops count as 2x their number, attacking and defending, and the Kobolds turn hyper-aggressive (see kingdom-behaviour)
+				- A raid on the Kobold capital can be for the hoard (20 gold per surviving raider, which goes into the raider's gold)
+					- If the hoard drops below 12,000, the brood goes back to sleep until the tithe fills it again
 		- Growth
 			- Represents a multiplier on the recruitment of soldiers
 				- Fast growth = 2x, Normal = 1x, Slow = .5x
@@ -169,6 +176,7 @@ Kingdom Stats:
 				- Successfully capturing a node automatically causes devastation to increase by .5
 			- Raid: The nation attacks an adjacent node
 				- Attacker must designate a resource to attack for
+					- A raid on the Kobold capital can be for the dragon's hoard (see Dragon's Hoard)
 				- Acts similarly to Capture Node, but node will not change hands
 				- Resources are stolen from the defender at the following rates, and are calculated based on the surviving number of troops:
 					- 1 food per remaining soldier

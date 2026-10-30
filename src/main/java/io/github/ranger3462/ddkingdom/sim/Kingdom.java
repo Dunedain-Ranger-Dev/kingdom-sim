@@ -8,7 +8,7 @@ import java.util.Map;
 /** A kingdom in a game: who it is (from its {@link SimMap.KingdomSetup}), its stockpiles, and what the AI remembers. */
 public final class Kingdom {
     public final String id, name, color, growth, ai;
-    public final boolean player, goblinRule, noFreeRebuild, razes;
+    public final boolean player, goblinRule, noFreeRebuild, razes, brood;
     public final double strength, homeDefStrength, upkeepMult, raiseDead;
     public final Double defStrength;
     public final List<String> foes;
@@ -29,6 +29,10 @@ public final class Kingdom {
     public int cooldownUntil;
     /** Times it has used Train troops. */
     public int trained;
+    /** Gold in the dragon's hoard (Rules.Brood). */
+    public double hoard;
+    /** Whether its brood is awake: the hoard is full. */
+    public boolean awake;
     /** The round it last used Produce Resources (null: never), for its cooldown. */
     public Integer lastProduced;
     public final Stats stats = new Stats();
@@ -55,6 +59,10 @@ public final class Kingdom {
                 goldShortTurns, buffs, nodesGained, nodesLost, turns, counters, raised, imported;
         /** Attacks the dice turned: won that would have been lost without them, or lost that would have been won. */
         public int upsets;
+        /** The brood: times it woke, the round it first did (0: never), and turns it spent awake. */
+        public int broodWoke, firstWoke, turnsAwake;
+        /** Gold raids took from its hoard, and that it took from others' hoards. */
+        public double hoardLost, stolenHoard;
         public double stolenFood, stolenGold, stolenRes;
         /** Gold lost to the end-of-turn decay (Rules.GoldDecay). */
         public double goldDecayed;
@@ -70,6 +78,7 @@ public final class Kingdom {
         goblinRule = s.goblinRule;
         noFreeRebuild = s.noFreeRebuild;
         razes = s.razes;
+        brood = s.brood;
         strength = s.strength == 0 ? 1 : s.strength;
         defStrength = s.defStrength;
         homeDefStrength = s.homeDefStrength;

@@ -18,6 +18,7 @@ import com.google.gson.JsonParser;
  *   --rounds 40             rounds per game
  *   --seed 1                first seed
  *   --set combat.retreat=0.3    change a rule (any number of times; the value is JSON)
+ *   --kingdom un.raiseDead=0.4  change a kingdom's setting on the map (any number of times; the value is JSON)
  *   --fingerprint           print each game's end state instead, to check against the browser simulator
  *                           (tools/simulator/parity.js)
  * </pre>
@@ -30,6 +31,7 @@ public final class SimMain {
         int games = 200, rounds = 40, seed = 1;
         boolean fingerprint = false;
         JsonObject overrides = new JsonObject();
+        Map<String, com.google.gson.JsonElement> kingdomOverrides = new LinkedHashMap<>();
         for (int i = 0; i < args.length; i++) {
             switch (args[i]) {
                 case "--map" -> mapId = args[++i];
@@ -37,6 +39,10 @@ public final class SimMain {
                 case "--rounds" -> rounds = Integer.parseInt(args[++i]);
                 case "--seed" -> seed = Integer.parseInt(args[++i]);
                 case "--fingerprint" -> fingerprint = true;
+                case "--kingdom" -> {
+                    String[] kv = args[++i].split("=", 2);
+                    kingdomOverrides.put(kv[0], JsonParser.parseString(kv[1]));
+                }
                 case "--set" -> {
                     String[] kv = args[++i].split("=", 2);
                     Rules.override(overrides, kv[0], JsonParser.parseString(kv[1]));
@@ -44,7 +50,7 @@ public final class SimMain {
                 default -> throw new IllegalArgumentException("Unknown option " + args[i]);
             }
         }
-        SimMap map = SimMap.named(mapId);
+        SimMap map = withKingdomSettings(SimMap.named(mapId), kingdomOverrides);
         Rules rules = Rules.load(overrides);
         if (fingerprint) {
             for (int s = seed; s < seed + games; s++) {
@@ -53,6 +59,28 @@ public final class SimMain {
             return;
         }
         report(map, rules, seed, games, rounds);
+    }
+
+    /** The map with kingdom settings changed: "un.raiseDead" sets raiseDead on the kingdom with id un. */
+    static SimMap withKingdomSettings(SimMap map, Map<String, com.google.gson.JsonElement> settings) {
+        if (settings.isEmpty()) {
+            return map;
+        }
+        JsonObject json = Rules.GSON.toJsonTree(map).getAsJsonObject();
+        for (Map.Entry<String, com.google.gson.JsonElement> e : settings.entrySet()) {
+            String[] parts = e.getKey().split("\\.", 2);
+            boolean found = false;
+            for (com.google.gson.JsonElement k : json.getAsJsonArray("kingdoms")) {
+                if (k.getAsJsonObject().get("id").getAsString().equals(parts[0])) {
+                    k.getAsJsonObject().add(parts[1], e.getValue());
+                    found = true;
+                }
+            }
+            if (!found) {
+                throw new IllegalArgumentException("No kingdom " + parts[0] + " on the map");
+            }
+        }
+        return SimMap.parse(json);
     }
 
     public static Game play(SimMap map, Rules rules, int seed, int rounds) {
@@ -80,6 +108,7 @@ public final class SimMain {
     /** What one kingdom did, summed over a batch. */
     private static final class Totals {
         double endNodes, landValue, avgNodes, peakNodes, maxPeakNodes, tierSum, tierGames, landTierSum, landTierGames, avgArmy, peakArmy, maxPeakArmy, leads;
+        double wokeGames, firstWokeSum, turnsAwake, timesWoke, hoardEnd, hoardLost, hoarders;
         double conquests, conquestsWon, raids, raidsWon, stolenFood, stolenGold, stolenRes, goldEnd;
         final Map<String, Double> attacksOn = new LinkedHashMap<>();
     }
@@ -157,12 +186,23 @@ public final class SimMain {
                     t.landTierSum += landTiers / land;
                     t.landTierGames++;
                 }
+                if (game.hoards(k)) {
+                    t.hoarders++;
+                    t.hoardEnd += k.hoard;
+                    t.hoardLost += k.stats.hoardLost;
+                    t.turnsAwake += k.stats.turnsAwake;
+                    t.timesWoke += k.stats.broodWoke;
+                    if (k.stats.firstWoke > 0) {
+                        t.wokeGames++;
+                        t.firstWokeSum += k.stats.firstWoke;
+                    }
+                }
                 t.conquests += k.stats.capturesTried;
                 t.conquestsWon += k.stats.capturesWon;
                 t.raids += k.stats.raidsTried;
                 t.raidsWon += k.stats.raidsWon;
                 t.stolenFood += k.stats.stolenFood;
-                t.stolenGold += k.stats.stolenGold;
+                t.stolenGold += k.stats.stolenGold + k.stats.stolenHoard; // gold raided from a dragon's hoard counts too
                 t.stolenRes += k.stats.stolenRes;
                 t.goldEnd += k.gold;
                 k.stats.attacksOn.forEach((target, n) -> t.attacksOn.merge(target, (double) n, Double::sum));
@@ -200,6 +240,13 @@ public final class SimMain {
                     t.avgArmy / g, t.peakArmy / g, t.maxPeakArmy, t.conquests / g, t.conquestsWon / g, t.raids / g, t.raidsWon / g,
                     t.stolenFood / g, t.stolenGold / g, t.stolenRes / g, t.goldEnd / g, 100 * t.leads / g);
         }
+        per.forEach((id, t) -> {
+            if (t.hoarders > 0) {
+                System.out.printf(Locale.ROOT, "  %s: brood woke in %.0f%% of games (first in round %.1f on average), awake %.1f turns and woke %.1f times a game;"
+                        + " hoard %.0f at the end, %.0f raided from it a game%n", id, 100 * t.wokeGames / g, t.wokeGames == 0 ? 0 : t.firstWokeSum / t.wokeGames,
+                        t.turnsAwake / g, t.timesWoke / g, t.hoardEnd / g, t.hoardLost / g);
+            }
+        });
         List<String> targets = new ArrayList<>(per.keySet());
         targets.add("none");
         System.out.println("  attacks aimed at (% of each kingdom's conquests and raids):");

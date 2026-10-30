@@ -24,7 +24,7 @@
     aggr: 1, raid: 0.8, def: 1, econ: 1, mil: 1, margin: 1.25, raidMargin: 0, armyRatio: 1, minArmy: 30,
     targets: 'any', reserveMult: 1, capitalReserve: 0, retake: 1, secureNew: 0, fortifyAttacked: 1,
     homeRadius: 0, homeBias: 1, upgradeAway: 1, goldRaidBias: 1, burst: 0, burstRatio: 2, rebalance: 0, leaveBehind: 0, landValue: 1,
-    counter: 0, warOnly: 0, warHire: 0, raze: 0, minWin: 0, raidMinWin: 0, guardMult: 1, developTier: 0, developExpand: 1, developBonus: 0,
+    counter: 0, warOnly: 0, warHire: 0, raze: 0, minWin: 0, raidMinWin: 0, guardMult: 1, developTier: 0, developExpand: 1, developBonus: 0, hoardRaidBias: 2,
   };
 
   const TIER_NAMES = {
@@ -181,7 +181,7 @@
       const sc = clone(scenario);
       this.kingdoms = sc.kingdoms.map((k) => Object.assign({
         food: 0, gold: 0, res: 0, growth: 'normal', ai: 'balanced', goblinRule: false, buffTurns: 0,
-        strength: 1, player: false, mode: 'gather', raiseDead: 0, lastProduced: null, trained: 0,
+        strength: 1, player: false, mode: 'gather', raiseDead: 0, lastProduced: null, trained: 0, hoard: 0, awake: false,
       }, k));
       for (const k of this.kingdoms) {
         k.imports = (k.imports || []).map((c) => Object.assign({}, c));
@@ -192,7 +192,7 @@
         k.stats = {
           actions: {}, capturesTried: 0, capturesWon: 0, raidsTried: 0, raidsWon: 0, hired: 0,
           battleLosses: 0, kills: 0, shortageLosses: 0, foodShortTurns: 0, goldShortTurns: 0,
-          buffs: 0, nodesGained: 0, nodesLost: 0, stolen: { food: 0, gold: 0, res: 0 }, turns: 0, upsets: 0,
+          buffs: 0, nodesGained: 0, nodesLost: 0, stolen: { food: 0, gold: 0, res: 0, hoard: 0 }, turns: 0, upsets: 0, broodWoke: 0, firstWoke: 0, turnsAwake: 0, hoardLost: 0,
         };
         this.K[k.id] = k;
       }
@@ -297,7 +297,21 @@
     // Troop strength: the kingdom's own, plus what it has trained.
     strength(kid) {
       const k = kid && this.K[kid];
-      return k ? (k.strength || 1) + (k.trained > 0 ? k.trained * this.cfg.train.step : 0) : 1;
+      if (!k) return 1;
+      const s = (k.strength || 1) + (k.trained > 0 ? k.trained * this.cfg.train.step : 0);
+      return k.awake ? s * this.cfg.brood.strength : s;
+    }
+    // Whether the kingdom keeps a dragon's hoard (brood): the Kobolds.
+    hoards(k) { const b = this.cfg.brood; return !!(b && b.enabled && k.brood); }
+    // Wakes the brood once the hoard is full, and puts it back to sleep once it isn't.
+    updateBrood(k) {
+      if (!this.hoards(k)) return;
+      const awake = k.hoard >= this.cfg.brood.gold;
+      if (awake === k.awake) return;
+      k.awake = awake;
+      if (awake) { k.stats.broodWoke++; if (!k.stats.firstWoke) k.stats.firstWoke = this.round; }
+      this.emit(k.id, 'react', awake ? `The dragon's hoard holds ${k.hoard} gold and her brood is loose: troop strength now ×${r2(this.strength(k.id))}.`
+        : `The dragon's hoard has fallen to ${k.hoard} gold and her brood goes back to sleep.`);
     }
     // What the kingdom's next Train troops costs, or -1 if it can't train (off, or trained the most times).
     trainCost(k) {
@@ -385,6 +399,14 @@
       const inc = this.income(kid);
       k.food += inc.food; k.gold += inc.gold; k.res += inc.prod;
       k.food = r2(k.food); k.gold = r2(k.gold); k.res = r2(k.res);
+      if (this.hoards(k)) {
+        // The tithe only fills the dragon's hoard up to the target.
+        const tithe = Math.min(r2(inc.gold * this.cfg.brood.tithe), Math.max(0, r2(this.cfg.brood.gold - k.hoard)));
+        k.gold = r2(k.gold - tithe);
+        k.hoard = r2(k.hoard + tithe);
+        this.updateBrood(k);
+        if (k.awake) k.stats.turnsAwake++;
+      }
       k.stats.turns++;
       this.cur = { kid, phase: 'production', actionsLeft: 0, actionsTotal: 0, grossGold: inc.gold };
       this.emit(kid, 'phase', `Production: +${r2(inc.food)} food, +${r2(inc.gold)} gold, +${r2(inc.prod)} resources → stockpile ${k.food} / ${k.gold} / ${k.res}`);
@@ -678,11 +700,14 @@
     raidSteal(target, resource, survivors) {
       const c = this.cfg.raid;
       if (target.type === 'outpost' || !target.owner) return { amount: 0, cap: 0, key: null };
+      // A dragon's hoard can only be raided from the capital that keeps it, at the rate gold is taken.
+      if (resource === 'hoard' && !(target.type === 'capital' && this.hoards(this.K[target.owner]))) return { amount: 0, cap: 0, key: null };
       const base = this.baseOutput(target);
       const map = {
         food: { per: c.foodPer, out: base.food, key: 'food' },
         gold: { per: c.goldPer, out: base.gold, key: 'gold' },
         res: { per: c.prodPer, out: base.prod, key: 'res' },
+        hoard: { per: c.goldPer, out: base.gold, key: 'hoard' },
       }[resource];
       if (!map) throw new Error('Pick food, gold or resources to raid for.');
       const cap = c.maxTurns > 0 ? Math.max(0, map.out * c.maxTurns) : Infinity;
@@ -714,8 +739,11 @@
         this.hitMorale(target, c.morale.lost);
         const s = this.raidSteal(target, a.resource, r.survivors);
         if (s.amount > 0) {
-          dk[s.key] = r2(dk[s.key] - s.amount); k[s.key] = r2(k[s.key] + s.amount);
+          // A stolen hoard is just gold to the thief.
+          const into = s.key === 'hoard' ? 'gold' : s.key;
+          dk[s.key] = r2(dk[s.key] - s.amount); k[into] = r2(k[into] + s.amount);
           k.stats.stolen[s.key] += s.amount;
+          if (s.key === 'hoard') { dk.stats.hoardLost += s.amount; this.updateBrood(dk); }
         }
         const dev = Math.min(c.raid.devMax, c.raid.devPer10 * Math.floor(r.survivors / 10));
         target.devastation = r2(Math.min(1, target.devastation + dev));
@@ -846,16 +874,18 @@
     // Fields left out take PERSONALITY_DEFAULTS. With scaled dice, minWin (and raidMinWin) replace the margins with the
     // ones that win that often: the faction's risk appetite.
     personality(k) {
-      if (this.pcache[k.id]) return this.pcache[k.id];
+      // While the brood is awake, the kingdom plays as the brood's personality.
+      const name = k.awake ? this.cfg.brood.personality : k.ai, key = k.id + '/' + name;
+      if (this.pcache[key]) return this.pcache[key];
       const ps = this.cfg.ai.personalities;
-      const P = Object.assign({}, PERSONALITY_DEFAULTS, ps[k.ai] || ps.balanced);
+      const P = Object.assign({}, PERSONALITY_DEFAULTS, ps[name] || ps.balanced);
       const d = this.cfg.combat.dice;
       const m = P.minWin > 0 ? marginFor(d, P.minWin) : 0;
       if (m > 0) P.margin = m;
       const rc = P.raidMinWin > 0 ? P.raidMinWin : P.minWin;
       const rm = rc > 0 ? marginFor(d, rc) : 0;
       if (rm > 0) P.raidMargin = rm;
-      return (this.pcache[k.id] = P);
+      return (this.pcache[key] = P);
     }
     guardRules() { const g = this.cfg.ai.guard; return g && g.enabled ? g : null; }
     // The threat a node keeps a reserve against: the biggest enemy garrison next to it and, with the guard on, a share
@@ -1124,10 +1154,14 @@
               raised = Math.floor((aL + dL) * (k.raiseDead || 0));
             }
             let best = null;
-            for (const res of ['food', 'gold', 'res']) {
+            // A dragon's hoard can be raided from the capital that keeps it.
+            const hoard = t.type === 'capital' && this.hoards(this.K[t.owner]) && this.K[t.owner].hoard > 0;
+            for (const res of hoard ? ['food', 'gold', 'res', 'hoard'] : ['food', 'gold', 'res']) {
               const s = this.raidSteal(t, res, lootTroops);
-              let val = Vfull({ food: s.key === 'food' ? s.amount : 0, gold: s.key === 'gold' ? s.amount : 0, prod: s.key === 'res' ? s.amount : 0 });
+              const gold = s.key === 'gold' || s.key === 'hoard';
+              let val = Vfull({ food: s.key === 'food' ? s.amount : 0, gold: gold ? s.amount : 0, prod: s.key === 'res' ? s.amount : 0 });
               if (res === 'gold') val *= P.goldRaidBias;
+              if (res === 'hoard') val *= P.hoardRaidBias; // taking it also keeps the brood asleep
               if (!best || val > best.val) best = { res, val };
             }
             const dev = Math.min(c.raid.devMax, c.raid.devPer10 * Math.floor(lootTroops / 10));

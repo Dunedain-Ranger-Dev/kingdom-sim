@@ -136,8 +136,10 @@ public final class Game {
         return adj.get(id);
     }
 
+    /** How the kingdom's AI plays: its own personality, or the brood's while the brood is awake. */
     public Personality personality(Kingdom k) {
-        return personalities.computeIfAbsent(k.id, id -> Personality.of(rules, k.ai));
+        String ai = k.awake ? rules.brood.personality : k.ai;
+        return personalities.computeIfAbsent(k.id + "/" + ai, id -> Personality.of(rules, ai));
     }
 
     String kname(String kid) {
@@ -273,7 +275,39 @@ public final class Game {
     /** Troop strength: the kingdom's own, plus what it has trained. */
     public double strength(String kid) {
         Kingdom k = kid == null ? null : K.get(kid);
-        return k == null ? 1 : k.strength + (k.trained > 0 ? k.trained * rules.train.step : 0);
+        if (k == null) {
+            return 1;
+        }
+        double s = k.strength + (k.trained > 0 ? k.trained * rules.train.step : 0);
+        return k.awake ? s * rules.brood.strength : s;
+    }
+
+    /** Whether the kingdom keeps a dragon's hoard (Rules.Brood). */
+    public boolean hoards(Kingdom k) {
+        Rules.Brood b = rules.brood;
+        return b != null && b.enabled && k.brood;
+    }
+
+    /** Wakes the brood once the hoard is full, and puts it back to sleep once it isn't. */
+    void updateBrood(Kingdom k) {
+        if (!hoards(k)) {
+            return;
+        }
+        boolean awake = k.hoard >= rules.brood.gold;
+        if (awake == k.awake) {
+            return;
+        }
+        k.awake = awake;
+        if (awake) {
+            k.stats.broodWoke++;
+            if (k.stats.firstWoke == 0) {
+                k.stats.firstWoke = round;
+            }
+        }
+        if (!quiet) {
+            emit(k.id, "react", awake ? "The dragon's hoard holds " + num(k.hoard) + " gold and her brood is loose: troop strength now ×" + num(r2(strength(k.id))) + "."
+                    : "The dragon's hoard has fallen to " + num(k.hoard) + " gold and her brood goes back to sleep.");
+        }
     }
 
     /** What the kingdom's next Train troops costs, or -1 if it can't train (off, or trained the most times). */
@@ -475,6 +509,16 @@ public final class Game {
         k.food = r2(k.food + inc.food());
         k.gold = r2(k.gold + inc.gold());
         k.res = r2(k.res + inc.prod());
+        if (hoards(k)) {
+            // The tithe only fills the hoard up to the target, so any raid that takes from a full hoard puts the brood back to sleep.
+            double tithe = Math.min(r2(inc.gold() * rules.brood.tithe), Math.max(0, r2(rules.brood.gold - k.hoard)));
+            k.gold = r2(k.gold - tithe);
+            k.hoard = r2(k.hoard + tithe);
+            updateBrood(k);
+            if (k.awake) {
+                k.stats.turnsAwake++;
+            }
+        }
         k.stats.turns++;
         cur = new Turn(kid, inc.gold());
         if (!quiet) {
@@ -1027,6 +1071,14 @@ public final class Game {
                 per = c.prodPer;
                 out = base.prod();
             }
+            case "hoard" -> {
+                // Only from the capital of a kingdom keeping a dragon's hoard, at the rate gold is taken.
+                if (target.type != NodeType.CAPITAL || !hoards(K.get(target.owner))) {
+                    return new Steal(0, 0, null, 0);
+                }
+                per = c.goldPer;
+                out = base.gold();
+            }
             default -> throw new RuleException("Pick food, gold or resources to raid for.");
         }
         double cap = c.maxTurns > 0 ? Math.max(0, out * c.maxTurns) : Double.POSITIVE_INFINITY;
@@ -1040,6 +1092,7 @@ public final class Game {
         return switch (key) {
             case "food" -> k.food;
             case "gold" -> k.gold;
+            case "hoard" -> k.hoard;
             default -> k.res;
         };
     }
@@ -1048,6 +1101,7 @@ public final class Game {
         switch (key) {
             case "food" -> k.food = r2(k.food + amount);
             case "gold" -> k.gold = r2(k.gold + amount);
+            case "hoard" -> k.hoard = r2(k.hoard + amount);
             default -> k.res = r2(k.res + amount);
         }
     }
@@ -1087,10 +1141,15 @@ public final class Game {
             Steal s = raidSteal(target, a.resource(), r.survivors());
             if (s.amount() > 0) {
                 addStockpile(dk, s.key(), -s.amount());
-                addStockpile(k, s.key(), s.amount());
+                addStockpile(k, "hoard".equals(s.key()) ? "gold" : s.key(), s.amount()); // a stolen hoard is just gold to the thief
                 switch (s.key()) {
                     case "food" -> k.stats.stolenFood += s.amount();
                     case "gold" -> k.stats.stolenGold += s.amount();
+                    case "hoard" -> {
+                        k.stats.stolenHoard += s.amount();
+                        dk.stats.hoardLost += s.amount();
+                        updateBrood(dk);
+                    }
                     default -> k.stats.stolenRes += s.amount();
                 }
             }

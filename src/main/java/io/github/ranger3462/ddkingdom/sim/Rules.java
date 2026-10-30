@@ -57,6 +57,8 @@ public final class Rules {
     public GoldWildcard goldWildcard;
     /** The Train troops action: gold for a permanent troop strength bonus (null or not enabled: no such action). */
     public Train train;
+    /** The dragon's hoard and brood: the Kobolds' end game (null or not enabled: none). */
+    public Brood brood;
     /** A node that is a ruin once captured starts a free rebuild to Tier 1 that costs no action and finishes next turn. */
     public boolean freeRebuildOnCapture;
     public Produce produce;
@@ -150,6 +152,20 @@ public final class Rules {
      * Train troops: each use adds {@code step} to the kingdom's troop strength, attacking and defending, for {@code gold}
      * times the number of times it has trained (1000, then 2000, ...), at most {@code max} times.
      */
+    /**
+     * The dragon's hoard: each turn a kingdom with {@code brood} on the map (the Kobolds) puts {@code tithe} of the gold
+     * its nodes produce into a hoard it can't spend and the gold tax doesn't touch, until the hoard holds {@code gold}.
+     * {@code enabled} turns the whole event on or off. While the hoard holds at least
+     * {@code gold}, the dragon has let her brood loose: its troops count {@code strength} times their number and its AI
+     * plays as {@code personality}. Raids on its capital can steal from the hoard (the raid resource "hoard"); once the
+     * hoard drops below {@code gold}, the brood goes back to sleep until it's full again.
+     */
+    public static final class Brood {
+        public boolean enabled;
+        public double gold, strength, tithe;
+        public String personality;
+    }
+
     public static final class Train {
         public boolean enabled;
         public double gold, step;
