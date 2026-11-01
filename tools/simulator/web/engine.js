@@ -217,6 +217,10 @@
       this.log = [];
       this.history = [];
       this.pcache = {};
+      // The council's influence by group (politics), and the simulator's stand-in quests' own random numbers.
+      this.questRand = mulberry32(this.seed ^ 0x2545F491);
+      this.influence = {};
+      if (this.politicsOn()) for (const [id, group] of Object.entries(this.cfg.politics.groups)) this.influence[id] = group.baseline;
       this.snapshot(0);
     }
 
@@ -300,6 +304,32 @@
       if (!k) return 1;
       const s = (k.strength || 1) + (k.trained > 0 ? k.trained * this.cfg.train.step : 0);
       return k.awake ? s * this.cfg.brood.strength : s;
+    }
+    politicsOn() { const p = this.cfg.politics; return !!(p && p.enabled); }
+    // A quest done for a group (a player's, or the simulator's stand-in) raises its influence on the council.
+    questDone(group) { if (this.politicsOn() && group in this.influence) this.influence[group] = this.influence[group] + this.cfg.politics.questInfluence; }
+    // At the start of the player kingdom's turn: influence fades back toward the baselines, then the stand-in quests.
+    updatePolitics() {
+      const p = this.cfg.politics;
+      for (const [id, group] of Object.entries(p.groups)) this.influence[id] = this.influence[id] + (group.baseline - this.influence[id]) * p.decay;
+      if (!(p.simQuests > 0)) return;
+      const whole = Math.floor(p.simQuests);
+      const quests = whole + (this.questRand() < p.simQuests - whole ? 1 : 0);
+      const ids = Object.keys(p.groups);
+      for (let i = 0; i < quests; i++) this.questDone(p.simFavour ? p.simFavour : ids[Math.floor(this.questRand() * ids.length)]);
+    }
+    // The council's lean on an action: each group's share above or below its usual share, times its affinity. 0 at the baselines.
+    lean(type) {
+      if (!this.politicsOn()) return 0;
+      let total = 0, baseTotal = 0;
+      for (const [id, group] of Object.entries(this.cfg.politics.groups)) { total += this.influence[id]; baseTotal += group.baseline; }
+      if (total <= 0 || baseTotal <= 0) return 0;
+      let lean = 0;
+      for (const [id, group] of Object.entries(this.cfg.politics.groups)) {
+        const a = group.affinity[type];
+        if (a != null) lean += (this.influence[id] / total - group.baseline / baseTotal) * a;
+      }
+      return lean;
     }
     // Whether the kingdom keeps a dragon's hoard (brood): the Kobolds.
     hoards(k) { const b = this.cfg.brood; return !!(b && b.enabled && k.brood); }
@@ -407,6 +437,7 @@
         this.updateBrood(k);
         if (k.awake) k.stats.turnsAwake++;
       }
+      if (k.player && this.politicsOn()) this.updatePolitics();
       k.stats.turns++;
       this.cur = { kid, phase: 'production', actionsLeft: 0, actionsTotal: 0, grossGold: inc.gold };
       this.emit(kid, 'phase', `Production: +${r2(inc.food)} food, +${r2(inc.gold)} gold, +${r2(inc.prod)} resources → stockpile ${k.food} / ${k.gold} / ${k.res}`);
@@ -1063,7 +1094,13 @@
       const onlyCap = this.onlyCapital(kid);
       const SV = ai.soldierValue;
       const cands = [];
-      const add = (score, action) => { if (isFinite(score)) cands.push({ score: score * (1 + (this.rand() - 0.5) * ai.noise), action }); };
+      // The council leans the player kingdom toward what its stronger groups want (politics).
+      const politics = k.player && this.politicsOn() ? c.politics.weight : 0;
+      const add = (score, action) => {
+        if (!isFinite(score)) return;
+        const leaned = politics === 0 ? score : score + politics * this.lean(action.type) * Math.abs(score);
+        cands.push({ score: leaned * (1 + (this.rand() - 0.5) * ai.noise), action });
+      };
       const reserve = (n) => {
         const t = this.threat(n, kid);
         let r = t ? Math.ceil(Math.min(n.garrison, t * 0.6 * P.def * P.reserveMult)) : 0;

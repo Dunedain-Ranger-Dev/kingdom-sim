@@ -380,9 +380,12 @@ final class GameAi {
         boolean onlyCap = g.onlyCapital(kid);
         double sv = ai.soldierValue;
         List<Candidate> cands = new ArrayList<>();
+        // The council leans the player kingdom toward what its stronger groups want (Rules.Politics).
+        double politics = k.player && g.politicsOn() ? c.politics.weight : 0;
         java.util.function.BiConsumer<Double, Action> add = (score, action) -> {
             if (Double.isFinite(score)) {
-                cands.add(new Candidate(score * (1 + (g.rand.next() - 0.5) * ai.noise), action));
+                double leaned = politics == 0 ? score : score + politics * g.lean(action.type()) * Math.abs(score);
+                cands.add(new Candidate(leaned * (1 + (g.rand.next() - 0.5) * ai.noise), action));
             }
         };
         Map<Node, Double> reserves = new HashMap<>(); // garrisons don't change while it chooses

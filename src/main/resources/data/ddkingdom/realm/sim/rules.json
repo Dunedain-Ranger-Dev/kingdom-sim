@@ -121,6 +121,36 @@
     "neutralIsHostile": false
   },
   "repairCost": 100,
+  "politics": {
+    "enabled": true,
+    "weight": 0.5,
+    "decay": 0.05,
+    "questInfluence": 5,
+    "simQuests": 0,
+    "simFavour": "",
+    "groups": {
+      "crown": {
+        "baseline": 20,
+        "affinity": {"capture": 1, "heroic": 1, "raid": -1, "hire": 1, "fortify": 2, "reinforce_border": 2, "send": 1, "upgrade": 1}
+      },
+      "merchants": {
+        "baseline": 20,
+        "affinity": {"capture": -1, "heroic": -1, "raid": 1, "hire": -1, "upgrade": 2, "produce": 2, "import_food": 1}
+      },
+      "watch": {
+        "baseline": 20,
+        "affinity": {"capture": 1, "heroic": 1, "raid": 1, "hire": 2, "fortify": 1, "reinforce_border": 1, "send": 1, "produce": -1}
+      },
+      "adventurers": {
+        "baseline": 20,
+        "affinity": {"capture": 2, "heroic": 2, "raid": 2, "fortify": -1, "reinforce_border": -1, "produce": -1}
+      },
+      "craft": {
+        "baseline": 20,
+        "affinity": {"capture": -1, "heroic": -1, "upgrade": 2, "produce": 1, "repair": 2}
+      }
+    }
+  },
   "brood": {
     "enabled": true,
     "gold": 12000,

@@ -59,6 +59,8 @@ public final class Rules {
     public Train train;
     /** The dragon's hoard and brood: the Kobolds' end game (null or not enabled: none). */
     public Brood brood;
+    /** Council pressure on the player kingdom, the Hearthbound (docs/design/realm-politics.md; null or not enabled: none). */
+    public Politics politics;
     /** A node that is a ruin once captured starts a free rebuild to Tier 1 that costs no action and finishes next turn. */
     public boolean freeRebuildOnCapture;
     public Produce produce;
@@ -164,6 +166,33 @@ public final class Rules {
         public boolean enabled;
         public double gold, strength, tithe;
         public String personality;
+    }
+
+    /**
+     * The council: groups whose influence leans the player kingdom's AI toward their kind of action. Each group's share
+     * of the influence above or below its usual share, times its affinity for an action, adds up to the lean on that
+     * action, and the AI's score for it moves by {@code weight} times the lean. Quests raise a group's influence, and it
+     * fades back toward its baseline each turn.
+     */
+    public static final class Politics {
+        public boolean enabled;
+        /** How far the lean moves an action's score: score + weight × lean × |score|. */
+        public double weight;
+        /** Share of the way each group's influence moves back to its baseline each of the kingdom's turns. */
+        public double decay;
+        /** Influence a completed quest adds to its group. */
+        public double questInfluence;
+        /** Simulator only, standing in for players: quests completed each turn on average. */
+        public double simQuests;
+        /** Simulator only: the group those quests are for; blank for a random group each time. */
+        public String simFavour = "";
+        /** By id: each group's baseline influence and its affinity for actions (by action id; missing is 0). */
+        public Map<String, Group> groups = new LinkedHashMap<>();
+    }
+
+    public static final class Group {
+        public double baseline;
+        public Map<String, Double> affinity = new LinkedHashMap<>();
     }
 
     public static final class Train {

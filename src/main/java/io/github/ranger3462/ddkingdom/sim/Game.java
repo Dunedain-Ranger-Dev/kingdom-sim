@@ -84,6 +84,9 @@ public final class Game {
     public final List<LogEntry> log = new ArrayList<>();
     public final List<Snapshot> history = new ArrayList<>();
     final GameAi ai;
+    /** The council's influence by group (Rules.Politics), and the simulator's stand-in quests' own random numbers. */
+    public final Map<String, Double> influence = new LinkedHashMap<>();
+    private final Rng questRng;
 
     /**
      * A new game on {@code map}. {@code maxRounds} is how long the AI expects the game to last (0: open-ended);
@@ -118,6 +121,10 @@ public final class Game {
             adj.get(edge[1]).add(edge[0]);
         }
         order = new ArrayList<>(K.keySet());
+        questRng = new Rng(seed ^ 0x2545F491);
+        if (politicsOn()) {
+            rules.politics.groups.forEach((id, group) -> influence.put(id, group.baseline));
+        }
         ai = new GameAi(this);
         snapshot(0);
     }
@@ -280,6 +287,56 @@ public final class Game {
         }
         double s = k.strength + (k.trained > 0 ? k.trained * rules.train.step : 0);
         return k.awake ? s * rules.brood.strength : s;
+    }
+
+    public boolean politicsOn() {
+        return rules.politics != null && rules.politics.enabled;
+    }
+
+    /** A quest done for a group (a player's, or the simulator's stand-in) raises its influence on the council. */
+    public void questDone(String group) {
+        if (politicsOn() && influence.containsKey(group)) {
+            influence.put(group, influence.get(group) + rules.politics.questInfluence);
+        }
+    }
+
+    /** At the start of the player kingdom's turn: influence fades back toward the baselines, then the stand-in quests. */
+    private void updatePolitics() {
+        Rules.Politics politics = rules.politics;
+        politics.groups.forEach((id, group) -> influence.put(id, influence.get(id) + (group.baseline - influence.get(id)) * politics.decay));
+        if (politics.simQuests <= 0) {
+            return;
+        }
+        double whole = Math.floor(politics.simQuests);
+        int quests = (int) whole + (questRng.next() < politics.simQuests - whole ? 1 : 0);
+        List<String> ids = new ArrayList<>(politics.groups.keySet());
+        for (int i = 0; i < quests; i++) {
+            boolean favoured = politics.simFavour != null && !politics.simFavour.isEmpty();
+            questDone(favoured ? politics.simFavour : ids.get((int) Math.floor(questRng.next() * ids.size())));
+        }
+    }
+
+    /** The council's lean on an action: each group's share above or below its usual share, times its affinity. 0 at the baselines. */
+    public double lean(Action.Type type) {
+        if (!politicsOn()) {
+            return 0;
+        }
+        double total = 0, baseTotal = 0;
+        for (Map.Entry<String, Rules.Group> e : rules.politics.groups.entrySet()) {
+            total += influence.get(e.getKey());
+            baseTotal += e.getValue().baseline;
+        }
+        if (total <= 0 || baseTotal <= 0) {
+            return 0;
+        }
+        double lean = 0;
+        for (Map.Entry<String, Rules.Group> e : rules.politics.groups.entrySet()) {
+            Double affinity = e.getValue().affinity.get(type.id);
+            if (affinity != null) {
+                lean += (influence.get(e.getKey()) / total - e.getValue().baseline / baseTotal) * affinity;
+            }
+        }
+        return lean;
     }
 
     /** Whether the kingdom keeps a dragon's hoard (Rules.Brood). */
@@ -518,6 +575,9 @@ public final class Game {
             if (k.awake) {
                 k.stats.turnsAwake++;
             }
+        }
+        if (k.player && politicsOn()) {
+            updatePolitics();
         }
         k.stats.turns++;
         cur = new Turn(kid, inc.gold());

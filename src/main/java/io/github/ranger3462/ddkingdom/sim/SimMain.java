@@ -111,6 +111,8 @@ public final class SimMain {
         double wokeGames, firstWokeSum, turnsAwake, timesWoke, hoardEnd, hoardLost, hoarders;
         double conquests, conquestsWon, raids, raidsWon, stolenFood, stolenGold, stolenRes, goldEnd;
         final Map<String, Double> attacksOn = new LinkedHashMap<>();
+        final Map<String, Double> actionMix = new LinkedHashMap<>();
+        boolean player;
     }
 
     /**
@@ -121,6 +123,7 @@ public final class SimMain {
     private static void report(SimMap map, Rules rules, int seed, int games, int rounds) {
         long start = System.currentTimeMillis();
         Map<String, Totals> per = new LinkedHashMap<>();
+        Map<String, Double> council = new LinkedHashMap<>(); // each group's share of the council at the end, summed
         Map<String, Integer> actions = new LinkedHashMap<>();
         int totalActions = 0;
         double ruins = 0, unowned = 0, upsets = 0, attacks = 0;
@@ -206,6 +209,8 @@ public final class SimMain {
                 t.stolenRes += k.stats.stolenRes;
                 t.goldEnd += k.gold;
                 k.stats.attacksOn.forEach((target, n) -> t.attacksOn.merge(target, (double) n, Double::sum));
+                k.stats.actions.forEach((type, n) -> t.actionMix.merge(type, (double) n, Double::sum));
+                t.player = k.player;
                 upsets += k.stats.upsets;
                 attacks += k.stats.capturesTried + k.stats.raidsTried;
                 for (Map.Entry<String, Integer> e : k.stats.actions.entrySet()) {
@@ -214,6 +219,8 @@ public final class SimMain {
                 }
             }
             per.get(leader).leads++;
+            double influence = game.influence.values().stream().mapToDouble(Double::doubleValue).sum();
+            game.influence.forEach((group, v) -> council.merge(group, influence == 0 ? 0 : v / influence, Double::sum));
             for (Node n : game.nodes) {
                 if (n.type != NodeType.CAPITAL) {
                     if (n.tier == 0 && !(n.upgrade != null && n.upgrade.free)) {
@@ -240,7 +247,19 @@ public final class SimMain {
                     t.avgArmy / g, t.peakArmy / g, t.maxPeakArmy, t.conquests / g, t.conquestsWon / g, t.raids / g, t.raidsWon / g,
                     t.stolenFood / g, t.stolenGold / g, t.stolenRes / g, t.goldEnd / g, 100 * t.leads / g);
         }
+        if (!council.isEmpty()) {
+            StringBuilder shares = new StringBuilder("  council at the end:");
+            council.forEach((group, share) -> shares.append(String.format(Locale.ROOT, " %s %.0f%%", group, 100 * share / g)));
+            System.out.println(shares);
+        }
         per.forEach((id, t) -> {
+            if (t.player) {
+                double all = t.actionMix.values().stream().mapToDouble(Double::doubleValue).sum();
+                StringBuilder mix = new StringBuilder("  " + id + " (the player kingdom) spent its actions on:");
+                t.actionMix.entrySet().stream().sorted((a, b) -> Double.compare(b.getValue(), a.getValue()))
+                        .forEach(e -> mix.append(String.format(Locale.ROOT, " %s %.0f%%", e.getKey(), 100 * e.getValue() / all)));
+                System.out.println(mix);
+            }
             if (t.hoarders > 0) {
                 System.out.printf(Locale.ROOT, "  %s: brood woke in %.0f%% of games (first in round %.1f on average), awake %.1f turns and woke %.1f times a game;"
                         + " hoard %.0f at the end, %.0f raided from it a game%n", id, 100 * t.wokeGames / g, t.wokeGames == 0 ? 0 : t.firstWokeSum / t.wokeGames,
