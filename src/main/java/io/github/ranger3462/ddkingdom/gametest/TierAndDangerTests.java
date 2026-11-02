@@ -1,5 +1,9 @@
 package io.github.ranger3462.ddkingdom.gametest;
 
+import java.util.List;
+import java.util.Optional;
+import java.util.UUID;
+
 import io.github.ranger3462.ddkingdom.KingdomSim;
 import io.github.ranger3462.dungeondelving.dungeon.DungeonFactions;
 import io.github.ranger3462.ddkingdom.entity.TownGuard;
@@ -15,6 +19,8 @@ import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.Mob;
+import net.minecraft.world.entity.TamableAnimal;
 import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.entity.monster.Zombie;
 import net.minecraft.world.item.Items;
@@ -197,6 +203,35 @@ public class TierAndDangerTests {
         RealmLevels.apply(zombie, 4);
         helper.assertTrue(Math.abs(zombie.getMaxHealth() - health * 1.6f) < 0.01f, "applying it twice doesn't stack");
         zombie.discard();
+        helper.succeed();
+    }
+
+    /** Ice and Fire's dragons get their area's level when they appear (KING-17), unless they're someone's. */
+    @GameTest(template = ANY_TEMPLATE)
+    public static void wildDragonsGetTheirAreasLevel(GameTestHelper helper) {
+        ServerLevel level = helper.getLevel();
+        Optional<EntityType<?>> type = EntityType.byString("iceandfire:fire_dragon");
+        if (type.isEmpty()) {
+            helper.succeed(); // Ice and Fire isn't installed.
+            return;
+        }
+        helper.assertTrue(type.get().is(RealmLevels.LEVELLED_ON_JOIN), "fire dragons are levelled when they appear");
+        BlockPos at = helper.absolutePos(new BlockPos(1, 2, 1));
+        Realm realm = new Realm();
+        // 1000 blocks from the kingdom: level (1000 - 64) / 150 = 6.
+        realm.add(new RealmNode("riverhold", RealmNode.Type.TOWN, RealmNode.KINGDOM, level.dimension(), at.offset(1000, 0, 0)));
+        Mob wild = (Mob) type.get().create(level);
+        Mob tamed = (Mob) type.get().create(level);
+        wild.moveTo(at.getX(), at.getY(), at.getZ());
+        tamed.moveTo(at.getX(), at.getY(), at.getZ());
+        ((TamableAnimal) tamed).setOwnerUUID(UUID.randomUUID());
+        float health = wild.getMaxHealth();
+        RealmLevels.levelJoined(realm, List.of(wild, tamed));
+        helper.assertTrue(wild.getPersistentData().getInt(RealmLevels.LEVEL_TAG) == 6, "a wild dragon gets its area's level 6");
+        helper.assertTrue(wild.getMaxHealth() > health * 1.8f, "and 90% more health: " + health + " to " + wild.getMaxHealth());
+        helper.assertFalse(tamed.getPersistentData().contains(RealmLevels.LEVEL_TAG), "someone's dragon is left alone");
+        wild.discard();
+        tamed.discard();
         helper.succeed();
     }
 }

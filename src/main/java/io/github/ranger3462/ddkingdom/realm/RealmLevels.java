@@ -1,7 +1,9 @@
 package io.github.ranger3462.ddkingdom.realm;
 
+import java.util.ArrayList;
 import java.util.EnumSet;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
@@ -10,14 +12,18 @@ import io.github.ranger3462.ddkingdom.KingdomSim;
 import net.minecraft.ChatFormatting;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Holder;
+import net.minecraft.core.registries.Registries;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.tags.TagKey;
 import net.minecraft.util.Mth;
+import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.Mob;
 import net.minecraft.world.entity.MobSpawnType;
+import net.minecraft.world.entity.OwnableEntity;
 import net.minecraft.world.entity.ai.attributes.Attribute;
 import net.minecraft.world.entity.ai.attributes.AttributeInstance;
 import net.minecraft.world.entity.ai.attributes.AttributeModifier;
@@ -26,6 +32,7 @@ import net.minecraft.world.entity.monster.Enemy;
 import net.minecraft.world.level.Level;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
+import net.neoforged.neoforge.event.entity.EntityJoinLevelEvent;
 import net.neoforged.neoforge.event.entity.living.FinalizeSpawnEvent;
 import net.neoforged.neoforge.event.tick.ServerTickEvent;
 
@@ -43,6 +50,8 @@ import net.neoforged.neoforge.event.tick.ServerTickEvent;
  * levelled mob shows a higher one.
  * Players see the danger change as they cross into an area, and {@code /realm danger} shows it. Worlds and dimensions
  * without realm nodes aren't touched. Raiders (spawned for a raid) and mobs from spawners or commands aren't levelled.
+ * Mobs in the {@link #LEVELLED_ON_JOIN} tag are levelled when they first appear instead, though they aren't monsters
+ * or come without a spawn event: Ice and Fire's dragons, which its dens place as the world generates (KING-17).
  */
 @EventBusSubscriber(modid = KingdomSim.MODID)
 public final class RealmLevels {
@@ -66,6 +75,10 @@ public final class RealmLevels {
     private static final Set<MobSpawnType> LEVELLED = EnumSet.of(MobSpawnType.NATURAL, MobSpawnType.CHUNK_GENERATION, MobSpawnType.PATROL,
             MobSpawnType.REINFORCEMENT, MobSpawnType.JOCKEY, MobSpawnType.STRUCTURE);
     private static final Map<UUID, Integer> LAST_SEEN = new HashMap<>();
+    /** Mobs levelled when they first appear in the world; tamed ones are left alone. */
+    public static final TagKey<EntityType<?>> LEVELLED_ON_JOIN = TagKey.create(Registries.ENTITY_TYPE, KingdomSim.id("levelled_on_join"));
+    /** Tagged mobs that just appeared, levelled at the end of the tick, once e.g. a hatched dragon has its owner. */
+    private static final List<Mob> JOINED = new ArrayList<>();
 
     private RealmLevels() {}
 
@@ -129,6 +142,32 @@ public final class RealmLevels {
         ServerLevel level = event.getLevel().getLevel();
         Realm realm = Realm.get(level.getServer());
         apply(mob, level(realm, level.dimension(), BlockPos.containing(event.getX(), event.getY(), event.getZ())));
+    }
+
+    @SubscribeEvent
+    public static void onEntityJoin(EntityJoinLevelEvent event) {
+        if (!event.getLevel().isClientSide() && event.getEntity() instanceof Mob mob && mob.getType().is(LEVELLED_ON_JOIN)
+                && !mob.getPersistentData().contains(LEVEL_TAG)) {
+            JOINED.add(mob);
+        }
+    }
+
+    @SubscribeEvent
+    public static void levelJoined(ServerTickEvent.Post event) {
+        if (!JOINED.isEmpty()) {
+            List<Mob> joined = List.copyOf(JOINED);
+            JOINED.clear();
+            levelJoined(Realm.get(event.getServer()), joined);
+        }
+    }
+
+    /** Levels tagged mobs that just appeared, where they are, unless they've been tamed or levelled already. */
+    public static void levelJoined(Realm realm, List<Mob> joined) {
+        for (Mob mob : joined) {
+            if (mob.isAlive() && !mob.getPersistentData().contains(LEVEL_TAG) && !(mob instanceof OwnableEntity owned && owned.getOwnerUUID() != null)) {
+                apply(mob, level(realm, mob.level().dimension(), mob.blockPosition()));
+            }
+        }
     }
 
     /** Tells players the danger when it changes where they are (checked every two seconds). */
