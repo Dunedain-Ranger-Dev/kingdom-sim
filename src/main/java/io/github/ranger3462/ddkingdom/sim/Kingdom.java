@@ -8,7 +8,7 @@ import java.util.Map;
 /** A kingdom in a game: who it is (from its {@link SimMap.KingdomSetup}), its stockpiles, and what the AI remembers. */
 public final class Kingdom {
     public final String id, name, color, growth, ai;
-    public final boolean player, goblinRule, noFreeRebuild, razes, brood;
+    public final boolean player, goblinRule, noFreeRebuild, razes, brood, minor;
     public final double strength, homeDefStrength, upkeepMult, raiseDead;
     public final Double defStrength;
     public final List<String> foes;
@@ -33,6 +33,9 @@ public final class Kingdom {
     public double hoard;
     /** Whether its brood is awake: the hoard is full. */
     public boolean awake;
+    /** A minor faction: the round it can next appear, and whether it's on the map now. */
+    public int nextSpawn;
+    public boolean present;
     /** The round it last used Produce Resources (null: never), for its cooldown. */
     public Integer lastProduced;
     public final Stats stats = new Stats();
@@ -61,6 +64,8 @@ public final class Kingdom {
         public int upsets;
         /** The brood: times it woke, the round it first did (0: never), and turns it spent awake. */
         public int broodWoke, firstWoke, turnsAwake;
+        /** A minor faction: times it appeared, and turns it was on the map. */
+        public int spawns, turnsPresent;
         /** Gold raids took from its hoard, and that it took from others' hoards. */
         public double hoardLost, stolenHoard;
         public double stolenFood, stolenGold, stolenRes;
@@ -79,6 +84,7 @@ public final class Kingdom {
         noFreeRebuild = s.noFreeRebuild;
         razes = s.razes;
         brood = s.brood;
+        minor = s.minor;
         strength = s.strength == 0 ? 1 : s.strength;
         defStrength = s.defStrength;
         homeDefStrength = s.homeDefStrength;

@@ -87,6 +87,9 @@ public final class Game {
     /** The council's influence by group (Rules.Politics), and the simulator's stand-in quests' own random numbers. */
     public final Map<String, Double> influence = new LinkedHashMap<>();
     private final Rng questRng;
+    /** Where minor factions appear: their own random numbers, so they don't move any other roll. */
+    private final Rng spawnRng;
+    final Map<String, Rules.MinorFaction> minors = new LinkedHashMap<>();
 
     /**
      * A new game on {@code map}. {@code maxRounds} is how long the AI expects the game to last (0: open-ended);
@@ -102,6 +105,16 @@ public final class Game {
             Kingdom k = new Kingdom(setup);
             kingdoms.add(k);
             K.put(k.id, k);
+        }
+        if (rules.minor != null && rules.minor.enabled) {
+            rules.minor.factions.forEach((id, faction) -> {
+                faction.kingdom.minor = true;
+                Kingdom k = new Kingdom(faction.kingdom);
+                k.nextSpawn = faction.firstRound;
+                kingdoms.add(k);
+                K.put(k.id, k);
+                minors.put(k.id, faction);
+            });
         }
         for (SimMap.NodeSetup setup : map.nodes) {
             Node n = new Node(setup);
@@ -122,6 +135,7 @@ public final class Game {
         }
         order = new ArrayList<>(K.keySet());
         questRng = new Rng(seed ^ 0x2545F491);
+        spawnRng = new Rng(seed ^ 0x1B873593);
         if (politicsOn()) {
             rules.politics.groups.forEach((id, group) -> influence.put(id, group.baseline));
         }
@@ -289,6 +303,79 @@ public final class Game {
         return k.awake ? s * rules.brood.strength : s;
     }
 
+    /** The rules for a minor faction, or null for a regular one. */
+    public Rules.MinorFaction minorRules(Kingdom k) {
+        return minors.get(k.id);
+    }
+
+    /**
+     * The start of a minor faction's turn: if it has lost everything it fades away until it can come back; once it
+     * can, it appears; while it's on the map, its nodes gather recruits. Returns whether it's on the map to act.
+     */
+    private boolean minorTurn(Kingdom k) {
+        Rules.MinorFaction faction = minors.get(k.id);
+        List<Node> owned = ownedNodes(k.id);
+        if (owned.isEmpty()) {
+            if (k.present) {
+                k.present = false;
+                k.nextSpawn = round + faction.respawn;
+                if (!quiet) {
+                    emit(k.id, "react", k.name + " have been driven out, for now.");
+                }
+            }
+            if (round < k.nextSpawn || !spawn(k, faction)) {
+                return false;
+            }
+            owned = ownedNodes(k.id);
+        }
+        // Recruits, until the faction's whole army reaches its cap.
+        int room = faction.maxArmy > 0 ? faction.maxArmy - army(k.id) : Game.UNCAPPED;
+        for (Node n : owned) {
+            int add = Math.max(0, Math.min(Math.min(faction.recruit, garrisonCap(n) - n.garrison), room));
+            n.garrison += add;
+            room -= add;
+        }
+        k.stats.turnsPresent++;
+        return true;
+    }
+
+    /** A minor faction appears: on an unowned node of its types if there is one, else on one held more weakly than its troops. */
+    private boolean spawn(Kingdom k, Rules.MinorFaction faction) {
+        List<Node> open = new ArrayList<>(), weak = new ArrayList<>();
+        for (Node n : nodes) {
+            if (n.type == NodeType.CAPITAL || !faction.types.contains(n.type)) {
+                continue;
+            }
+            if (n.owner == null) {
+                open.add(n);
+            } else if (!K.get(n.owner).minor && n.garrison < faction.spawnTroops) {
+                weak.add(n);
+            }
+        }
+        List<Node> from = open.isEmpty() ? weak : open;
+        if (from.isEmpty()) {
+            return false;
+        }
+        Node n = from.get((int) Math.floor(spawnRng.next() * from.size()));
+        String was = n.owner;
+        if (was != null) {
+            K.get(was).stats.nodesLost++;
+            K.get(was).lost.put(n.id, round);
+        }
+        n.owner = k.id;
+        n.garrison = Math.min(faction.spawnTroops, garrisonCap(n));
+        n.upgrade = null;
+        n.morale = 10;
+        n.capturedRound = round;
+        k.present = true;
+        k.stats.spawns++;
+        k.stats.nodesGained++;
+        if (!quiet) {
+            emit(k.id, "react", k.name + " appear at " + n.name + (was == null ? "" : ", taking it from " + kname(was)) + ".");
+        }
+        return true;
+    }
+
     public boolean politicsOn() {
         return rules.politics != null && rules.politics.enabled;
     }
@@ -422,12 +509,13 @@ public final class Game {
     /** Node output, plus food arriving from import contracts unless {@code nodesOnly}. */
     public Output income(String kid, boolean nodesOnly) {
         double food = 0, gold = 0, prod = 0;
+        boolean minor = K.get(kid).minor; // minor factions live off the land: their nodes cost them nothing to run
         for (Node n : nodes) {
             if (n.ownedBy(kid)) {
                 Output o = output(n);
-                food += o.food();
-                gold += o.gold();
-                prod += o.prod();
+                food += minor ? Math.max(0, o.food()) : o.food();
+                gold += minor ? Math.max(0, o.gold()) : o.gold();
+                prod += minor ? Math.max(0, o.prod()) : o.prod();
             }
         }
         if (!nodesOnly) {
@@ -612,7 +700,7 @@ public final class Game {
         String kid = cur.kid;
         Kingdom k = K.get(kid);
         int army = army(kid);
-        Upkeep up = upkeepFor(army, kid);
+        Upkeep up = k.minor ? new Upkeep(0, 0, 0) : upkeepFor(army, kid); // minor factions live off the land
         k.food = r2(k.food - up.food());
         k.gold = r2(k.gold - up.gold());
         // The optional stockpile tax: a share of gold above the tax-free amount is lost each upkeep (0 = off).
@@ -669,7 +757,8 @@ public final class Game {
         }
         k.imports.removeIf(c -> c.turnsLeft <= 0);
         cur.phase = Phase.ACTIONS;
-        cur.generalLeft = rules.baseActions + bonusActions(kid);
+        Rules.MinorFaction minor = minors.get(kid);
+        cur.generalLeft = minor != null && minor.actions > 0 ? minor.actions : rules.baseActions + bonusActions(kid);
         cur.extraLeft = rules.nonCombatActions.count;
         cur.actionsTotal = cur.actionsLeft = cur.generalLeft + cur.extraLeft;
         return cur;
@@ -732,6 +821,10 @@ public final class Game {
         }
         String kid = currentKid();
         Kingdom k = K.get(kid);
+        if (k.minor && !minorTurn(k)) {
+            endTurn(); // not on the map this turn
+            return StepResult.DONE;
+        }
         beginTurn();
         if ("manual".equals(k.ai)) {
             return StepResult.MANUAL;
@@ -1094,6 +1187,17 @@ public final class Game {
                 }
                 if (at == null) {
                     at = capital(kid);
+                }
+            }
+            if (at == null) {
+                // A kingdom with no capital (a minor faction) raises them at its biggest node, if it has one left.
+                for (Node n : ownedNodes(kid)) {
+                    if (at == null || n.garrison > at.garrison) {
+                        at = n;
+                    }
+                }
+                if (at == null) {
+                    continue;
                 }
             }
             Node cap = capital(kid);

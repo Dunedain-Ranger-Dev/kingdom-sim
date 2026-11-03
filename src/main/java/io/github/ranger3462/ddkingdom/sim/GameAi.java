@@ -92,6 +92,14 @@ final class GameAi {
         return 0;
     }
 
+    /** The bounty on a node held by a minor faction, for anyone but another minor faction (Rules.Minor#bounty); 1 otherwise. */
+    private double bounty(Kingdom k, Node t) {
+        if (k.minor || t.owner == null || !g.K.get(t.owner).minor) {
+            return 1;
+        }
+        return g.rules.minor.bounty;
+    }
+
     /** Buys the growth buff when it wants a bigger army and can afford to hire with it. */
     void buff(String kid) {
         Kingdom k = g.K.get(kid);
@@ -432,7 +440,7 @@ final class GameAi {
             if (p.homeRadius != 0) {
                 gain *= home.contains(t.id) ? p.homeBias : 0.7;
             }
-            return gain;
+            return gain * bounty(k, t);
         };
         // Behaviour: new conquests that still need securing before expanding again.
         List<Node> unsecured = new ArrayList<>();
@@ -463,6 +471,9 @@ final class GameAi {
         }
         boolean attacks = p.burst == 0;
         boolean dice = Combat.Dice.on(c.combat.dice);
+        // A minor faction holds only so much land; past that it only raids.
+        Rules.MinorFaction minor = g.minorRules(k);
+        boolean expand = minor == null || owned.size() < minor.maxNodes;
         // War-only kingdoms (the Orcs) take fights whatever the odds, unless they have a risk appetite to hold them to.
         boolean anyFight = p.warOnly != 0 && !(dice && p.minWin > 0);
 
@@ -483,7 +494,7 @@ final class GameAi {
                     if (!allowTarget.allows(t, avail * hm, dp)) {
                         continue;
                     }
-                    if (t.type != NodeType.CAPITAL && (anyFight || avail * hm > dp * p.margin)) {
+                    if (expand && t.type != NodeType.CAPITAL && (anyFight || avail * hm > dp * p.margin)) {
                         Action capture = heroic ? Action.heroic(from.id, tid, troops) : Action.capture(from.id, tid, troops);
                         if (dice) {
                             // With dice, the land is only won some of the time; the losses are what each side expects to lose.
@@ -542,6 +553,9 @@ final class GameAi {
                         double harm = v.full(g.baseOutput(t)) * dev * 4 * 0.3;
                         double loot = chance * bestVal;
                         double score = p.raid * (loot + defenderLosses * sv * 0.7 + chance * harm - (attackerLosses - raised) * sv);
+                        if (score > 0) {
+                            score *= bounty(k, t);
+                        }
                         if (loot > 0 || defenderLosses > 0) {
                             add.accept(score, Action.raid(from.id, tid, troops, bestRes));
                         }
@@ -555,7 +569,7 @@ final class GameAi {
         Blocked blocked = null;
         if (attacks) {
             for (Node t : g.nodes) {
-                if (t.ownedBy(kid) || t.type == NodeType.CAPITAL) {
+                if (!expand || t.ownedBy(kid) || t.type == NodeType.CAPITAL) {
                     continue;
                 }
                 List<Node> stages = new ArrayList<>();

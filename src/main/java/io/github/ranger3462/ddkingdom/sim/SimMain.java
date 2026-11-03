@@ -112,7 +112,8 @@ public final class SimMain {
         double conquests, conquestsWon, raids, raidsWon, stolenFood, stolenGold, stolenRes, goldEnd;
         final Map<String, Double> attacksOn = new LinkedHashMap<>();
         final Map<String, Double> actionMix = new LinkedHashMap<>();
-        boolean player;
+        boolean player, minor;
+        double spawns, turnsPresent, lostNodes;
     }
 
     /**
@@ -141,7 +142,7 @@ public final class SimMain {
                     value += n.tier;
                 }
                 t.landValue += value;
-                if (value > most) {
+                if (!k.minor && value > most) { // minor factions never count for winning
                     most = value;
                     leader = k.id;
                 }
@@ -211,6 +212,10 @@ public final class SimMain {
                 k.stats.attacksOn.forEach((target, n) -> t.attacksOn.merge(target, (double) n, Double::sum));
                 k.stats.actions.forEach((type, n) -> t.actionMix.merge(type, (double) n, Double::sum));
                 t.player = k.player;
+                t.minor = k.minor;
+                t.spawns += k.stats.spawns;
+                t.lostNodes += k.stats.nodesLost;
+                t.turnsPresent += k.stats.turnsPresent;
                 upsets += k.stats.upsets;
                 attacks += k.stats.capturesTried + k.stats.raidsTried;
                 for (Map.Entry<String, Integer> e : k.stats.actions.entrySet()) {
@@ -259,6 +264,10 @@ public final class SimMain {
                 t.actionMix.entrySet().stream().sorted((a, b) -> Double.compare(b.getValue(), a.getValue()))
                         .forEach(e -> mix.append(String.format(Locale.ROOT, " %s %.0f%%", e.getKey(), 100 * e.getValue() / all)));
                 System.out.println(mix);
+            }
+            if (t.minor) {
+                System.out.printf(Locale.ROOT, "  %s (minor faction): appeared %.1f times a game, on the map %.1f turns of %d, took %.1f nodes and lost %.1f%n",
+                        id, t.spawns / g, t.turnsPresent / g, rounds, t.conquestsWon / g + t.spawns / g, t.lostNodes / g);
             }
             if (t.hoarders > 0) {
                 System.out.printf(Locale.ROOT, "  %s: brood woke in %.0f%% of games (first in round %.1f on average), awake %.1f turns and woke %.1f times a game;"

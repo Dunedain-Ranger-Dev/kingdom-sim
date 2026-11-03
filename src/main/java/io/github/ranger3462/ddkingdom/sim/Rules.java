@@ -5,6 +5,7 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.Reader;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -61,6 +62,8 @@ public final class Rules {
     public Brood brood;
     /** Council pressure on the player kingdom, the Hearthbound (docs/design/realm-politics.md; null or not enabled: none). */
     public Politics politics;
+    /** Minor factions: bandits, vampires and the like, which come and go (null or not enabled: none). */
+    public Minor minor;
     /** A node that is a ruin once captured starts a free rebuild to Tier 1 that costs no action and finishes next turn. */
     public boolean freeRebuildOnCapture;
     public Produce produce;
@@ -174,6 +177,31 @@ public final class Rules {
      * action, and the AI's score for it moves by {@code weight} times the lean. Quests raise a group's influence, and it
      * fades back toward its baseline each turn.
      */
+    /**
+     * Minor factions don't start on the map. Each appears on a node of one of its {@code types} from round
+     * {@code firstRound} (an unowned one if there is one, else one held more weakly than its {@code spawnTroops}), holds
+     * at most {@code maxNodes}, gains {@code recruit} troops a turn at each node it holds instead of hiring, pays no
+     * upkeep, takes {@code actions} actions a turn, and comes back {@code respawn} rounds after losing everything. It never
+     * counts for winning.
+     */
+    public static final class Minor {
+        public boolean enabled;
+        /** How much more the other factions' AI values capturing or raiding a minor faction's node: a bounty for clearing it. */
+        public double bounty = 1;
+        public Map<String, MinorFaction> factions = new LinkedHashMap<>();
+    }
+
+    public static final class MinorFaction {
+        /** Who it is, as a map would set a kingdom up (its id, name, personality, raiseDead and so on). */
+        public SimMap.KingdomSetup kingdom;
+        public List<NodeType> types = new ArrayList<>();
+        public int maxNodes, spawnTroops, recruit, firstRound, respawn;
+        /** Actions it takes each turn (0: as many as everyone else). */
+        public int actions;
+        /** Its recruits stop once its whole army has this many troops (0: no cap). */
+        public int maxArmy;
+    }
+
     public static final class Politics {
         public boolean enabled;
         /** How far the lean moves an action's score: score + weight × lean × |score|. */

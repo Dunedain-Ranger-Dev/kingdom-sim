@@ -15,7 +15,7 @@ class GameTest {
             assertEquals(41, game.round, map);
             for (Kingdom k : game.kingdoms) {
                 assertTrue(k.food >= 0 && k.gold >= 0 && k.res >= 0, map + " " + k.id + " stockpiles");
-                assertTrue(game.capital(k.id) != null, map + " " + k.id + " keeps its capital");
+                assertTrue(k.minor || game.capital(k.id) != null, map + " " + k.id + " keeps its capital"); // minor factions have none
             }
         }
     }
@@ -38,7 +38,7 @@ class GameTest {
         // The capital produced 300 gold, so 60 went at the end of the turn (if the stockpile had that much).
         assertEquals(Math.min(60, first.gold + first.stats.goldDecayed), first.stats.goldDecayed, 0.001);
         SimMain.play(SimMap.named("large_ruins"), rules, 1, 40).kingdoms
-                .forEach(k -> assertTrue(k.gold >= 0 && k.stats.goldDecayed > 0, k.id));
+                .forEach(k -> assertTrue(k.gold >= 0 && (k.minor || k.stats.goldDecayed > 0), k.id)); // minor factions earn no gold
     }
 
     @Test

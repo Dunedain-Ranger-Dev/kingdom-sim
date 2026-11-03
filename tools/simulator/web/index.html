@@ -634,7 +634,9 @@
     const cfg = S.deepMerge(state.config, { ai: { noise } });
     const sc = S.clone(state.scenario);
     sc.kingdoms.forEach((k) => { if (k.ai === 'manual') k.ai = 'balanced'; });
-    const ids = sc.kingdoms.map((k) => k.id);
+    // Every kingdom in play, minor factions included (they're added by the rules, not the map).
+    const ks = new S.Game(sc, cfg, { seed: seed0, maxRounds: rounds, quiet: true }).kingdoms;
+    const ids = ks.map((k) => k.id), majors = ks.filter((k) => !k.minor).map((k) => k.id);
     const agg = {};
     for (const id of ids) agg[id] = { lead: 0, nodes: 0, army: 0, food: 0, gold: 0, res: 0, capT: 0, capW: 0, raidT: 0, raidW: 0, hired: 0, lost: 0, starved: 0, fShort: 0, wShort: 0, buffs: 0, turns: 0, acts: {}, curve: { nodes: [], army: [], food: [], gold: [], res: [], foodNet: [], goldNet: [] } };
     let done = 0;
@@ -646,8 +648,8 @@
         const g = new S.Game(sc, cfg, { seed: seed0 + done, maxRounds: rounds, quiet: true });
         for (let i = 0; i < rounds; i++) g.runRound();
         // The leader holds the most land by value: the tiers of its nodes added up.
-        const counts = ids.map((id) => g.ownedNodes(id).reduce((t, n) => t + n.tier, 0)), best = Math.max(...counts);
-        const leaders = ids.filter((id, i) => counts[i] === best);
+        const counts = majors.map((id) => g.ownedNodes(id).reduce((t, n) => t + n.tier, 0)), best = Math.max(...counts);
+        const leaders = majors.filter((id, i) => counts[i] === best); // minor factions never count for winning
         for (const id of ids) {
           const a = agg[id], k = g.K[id], s = k.stats;
           if (leaders.includes(id)) a.lead += 1 / leaders.length;
@@ -661,13 +663,12 @@
       }
       $('bProg').style.width = (done / games * 100) + '%';
       if (done < games) setTimeout(chunk, 0);
-      else { $('btnBatch').disabled = false; renderBatch(agg, sc, games, rounds, performance.now() - t0); }
+      else { $('btnBatch').disabled = false; renderBatch(agg, ks, games, rounds, performance.now() - t0); }
     }
     chunk();
   }
   const ACTION_COLORS = { produce: '#8A9A5B', upgrade: '#5B8A9A', hire: '#9A5B7E', capture: '#B13A2D', raid: '#D08A3A', heroic: '#7A2E9A', fortify: '#4F6B8F', reinforce_border: '#6E7F99', send: '#9A8F5B', repair: '#5B9A75', import_food: '#C2A23A', train: '#3A7D8C' };
-  function renderBatch(agg, sc, games, rounds, ms) {
-    const ks = sc.kingdoms;
+  function renderBatch(agg, ks, games, rounds, ms) {
     const per = (v) => fmt(v / games);
     const pct = (a, b) => (b ? Math.round(a / b * 100) + '%' : '–');
     let t1 = `<div class="panel stack"><h2>Results over ${games} games of ${rounds} rounds</h2><p class="muted" style="margin:0">Averages per game. Ran in ${Math.round(ms)} ms. "Leads" = share of games where the kingdom ended with the most land by value, the tiers of its nodes added up (ties split).</p><div class="table-wrap"><table>
@@ -753,6 +754,7 @@
     'produce.cooldown': 'turns before Produce resources can be used again (0 = any time)',
     'goldDecay.share': 'share of the gold its nodes produced that turn a kingdom loses at the end of its turn (0 = off)',
     'ai.armyTarget.enabled': 'the AI aims for a target army (army ratio and min army in the personality table) and stops hiring there; off: food and gold decide',
+    'minor.enabled': 'minor factions (bandits, vampires) come and go', 'minor.bounty': 'how much more other factions value taking or raiding a minor faction\'s node',
     'politics.enabled': 'council pressure on the player kingdom', 'politics.weight': 'how far the council leans the player kingdom\'s choices', 'politics.decay': 'share of the way influence fades back to the baselines each turn', 'politics.questInfluence': 'influence a completed quest adds to its group', 'politics.simQuests': 'simulator only: quests completed per turn, standing in for players (0 = none)', 'politics.simFavour': 'simulator only: which group those quests are for',
     'brood.enabled': 'the dragon\'s hoard and brood event (the Kobolds); off: no hoard, no brood', 'brood.gold': 'gold the hoard fills up to; the brood is loose while it holds this', 'brood.tithe': 'share of the Kobolds\' gold income tithed into the hoard each turn until it\'s full', 'brood.strength': 'troop strength × while the brood is loose', 'brood.personality': 'how the Kobolds play while the brood is loose',
     'train.enabled': 'allow the Train troops action', 'train.gold': 'gold for the first training; each one after costs this × how many times it has trained', 'train.step': 'troop strength added each time', 'train.max': 'most times a kingdom can train',
@@ -781,6 +783,8 @@
     if (path === 'combat.dice.mode') return `<select data-path="${path}">${['none', 'scaled', 'flat'].map((o) => `<option ${v === o ? 'selected' : ''}>${o}</option>`).join('')}</select>`;
     if (path === 'turnOrder') return `<select data-path="${path}">${['fixed', 'rotate', 'random'].map((o) => `<option ${v === o ? 'selected' : ''}>${o}</option>`).join('')}</select>`;
     if (typeof v === 'boolean') return `<input type="checkbox" data-path="${path}" ${v ? 'checked' : ''}>`;
+    if (Array.isArray(v)) return `<input type="text" data-list="1" data-path="${path}" value="${esc(v.join(', '))}">`;
+    if (typeof v === 'string') return `<input type="text" data-path="${path}" value="${esc(v)}">`;
     return `<input type="number" step="any" data-path="${path}" value="${v}">`;
   }
   function cfgRow(path, label, v) {
@@ -820,7 +824,8 @@
     let o = state.config;
     for (let i = 0; i < parts.length - 1; i++) o = o[parts[i]];
     const last = parts[parts.length - 1];
-    o[last] = el.type === 'checkbox' ? el.checked : el.tagName === 'SELECT' ? el.value : Number(el.value);
+    o[last] = el.type === 'checkbox' ? el.checked : el.dataset.list ? el.value.split(',').map((x) => x.trim()).filter(Boolean)
+      : el.tagName === 'SELECT' || el.type === 'text' ? el.value : Number(el.value);
   });
   $('btnApplyCfg').onclick = () => { persist(); newGame(); flash($('btnApplyCfg'), 'Applied'); };
   $('btnResetCfg').onclick = () => { state.config = S.clone(S.DEFAULT_CONFIG); renderCfg(); persist(); newGame(); flash($('btnResetCfg'), 'Restored'); };
@@ -839,7 +844,7 @@
   $('btnSnapMap').onclick = () => {
     const sc = {
       name: (state.scenario.name || 'Map') + ' (round ' + game.round + ')',
-      kingdoms: game.kingdoms.map((k) => ({ id: k.id, name: k.name, color: k.color, growth: k.growth, ai: k.ai, goblinRule: k.goblinRule, food: k.food, gold: k.gold, res: k.res })),
+      kingdoms: game.kingdoms.filter((k) => !k.minor).map((k) => ({ id: k.id, name: k.name, color: k.color, growth: k.growth, ai: k.ai, goblinRule: k.goblinRule, food: k.food, gold: k.gold, res: k.res })),
       nodes: game.nodes.map((n) => { const o = Object.assign({}, n); if (!o.upgrade) delete o.upgrade; return o; }),
       edges: state.scenario.edges,
     };
@@ -881,6 +886,7 @@
     "Goblins only attack other monsters when the target is weakened: morale 5 or lower, devastation 0.3 or more, or an attack with at least twice the defender's power.",
     'Orcs: troop strength ×1.25 in attack and defense, upkeep ×1.5 (1.5 food and 150 gold per batch, rounded up). They only capture, raid or hire, and take fights down to a 20% chance of winning, with every troop and no reserve. With no fight available they take the best other action.',
     'The dragon\'s hoard (the Kobolds; Brood under the rules, Brood enabled turns it off): each turn 20% of the Kobolds\' gold income goes into a hoard they can\'t spend and the gold tax doesn\'t touch, until it holds 12,000. While it does, the brood is loose: Kobold troops count ×2 and they play as the dragon personality. A raid on the Kobold capital can be for the hoard (20 gold per surviving raider); below 12,000 the brood sleeps again. The Kobold capital only borders Kobold land, so the AI rarely gets to raid it.',
+    'Minor factions (Minor under the rules): bandits and vampires aren\'t on the map at the start. Each appears on a node of its types (bandits: castles, watchtowers, production and food nodes from round 8; vampires: towns from round 25), on an unowned one if it can, else taking one held by fewer troops than it brings. It holds at most 3 nodes, gains recruits there each turn until its army reaches 50, pays no upkeep, takes 1 action a turn, and comes back some rounds after being driven out. Vampires raise 30% of each battle\'s dead. Other factions value their nodes ×2 (a bounty). Minor factions never count for winning.',
     'Kobold troop quality (weak low-tier troops, dragons at high tier) is not modelled; Kobolds use normal troop strength. Their "area surrounding the capital" is every node within 2 steps of it. Outside that area they rebuild ruins but never upgrade further.',
     'Elementals have normal growth, fight at ×1.5 troop strength when defending one of their own home nodes, only capture their own home nodes and value retaking them twice as much. When any kingdom captures or raids one of their nodes, they counter-attack along the shortest path towards that kingdom\'s capital, then raid it for gold, falling back after any lost fight or when the next fight would be lost.',
     'Dwarves have slow growth and sit in their capital in the north-east corner, with resource nodes behind it that only the capital touches. They attack Orc and Goblin nodes on any shared border to knock their tiers down, don\'t get the free rebuild on land they take, never upgrade it, and send the troops left there back to the capital.',

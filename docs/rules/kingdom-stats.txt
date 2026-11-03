@@ -50,6 +50,16 @@ Kingdom Stats:
 							- If this number increases to 250 the next time the kingdom's production phase, the new cost is 500
 					- This buff can be purchased during the production phase without the use of an action, but cannot be purchased at any other time
 				- All multipliers stack multiplicatively, so goblins who only control their capital and purchase the buff would have 8x recruitment for 5 turns
+	- Minor factions (bandits and vampires; they can be turned off)
+		- They aren't on the map at the start. Each appears on a node of the types it favours, on an unowned one if it can, otherwise taking one held by fewer troops than it brings
+			- Bandits: castles, watchtowers, production and food nodes, with 25 troops, from round 8
+			- Vampires: towns, with 30 troops, from round 25
+		- A minor faction holds at most 3 nodes; past that it only raids
+		- It doesn't hire, pay upkeep, or pay its nodes' running costs (a castle's food): each node it holds gains recruits every turn (bandits 2, vampires 1), until its whole army has 50 troops
+		- It takes 1 action a turn
+		- Once it has lost all its nodes it's driven out, and comes back somewhere else later (bandits after 12 rounds, vampires after 20)
+		- Vampires raise 30% of each battle's total casualties as their own, like the Undead
+		- Minor factions never count for winning
 	- All nodes have several stats associated with them
 		- Food
 			- This should be displayed as a net impact on the kingdom's food total

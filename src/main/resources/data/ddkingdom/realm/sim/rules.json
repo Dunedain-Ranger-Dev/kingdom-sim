@@ -121,6 +121,54 @@
     "neutralIsHostile": false
   },
   "repairCost": 100,
+  "minor": {
+    "enabled": true,
+    "bounty": 2,
+    "factions": {
+      "bandits": {
+        "kingdom": {
+          "id": "bandits",
+          "name": "Bandits",
+          "color": "#6B5B45",
+          "growth": "normal",
+          "ai": "bandit"
+        },
+        "types": [
+          "castle",
+          "outpost",
+          "production",
+          "food"
+        ],
+        "maxNodes": 3,
+        "spawnTroops": 25,
+        "recruit": 2,
+        "firstRound": 8,
+        "respawn": 12,
+        "actions": 1,
+        "maxArmy": 50
+      },
+      "vampires": {
+        "kingdom": {
+          "id": "vampires",
+          "name": "Vampires",
+          "color": "#8B1E3F",
+          "growth": "normal",
+          "ai": "vampire",
+          "raiseDead": 0.3
+        },
+        "types": [
+          "town"
+        ],
+        "maxNodes": 3,
+        "spawnTroops": 30,
+        "recruit": 1,
+        "firstRound": 25,
+        "respawn": 20,
+        "actions": 1,
+        "maxArmy": 50
+      }
+    }
+  },
   "politics": {
     "enabled": true,
     "weight": 0.5,
@@ -369,6 +417,28 @@
         "developTier": 3,
         "developExpand": 0.2,
         "developBonus": 1000
+      },
+      "bandit": {
+        "aggr": 1.6,
+        "raid": 1.2,
+        "def": 0.6,
+        "econ": 0.2,
+        "mil": 0.5,
+        "margin": 1.2,
+        "minWin": 0.55,
+        "raidMinWin": 0.5,
+        "goldRaidBias": 2,
+        "guardMult": 0.5
+      },
+      "vampire": {
+        "aggr": 1.8,
+        "raid": 1.2,
+        "def": 0.8,
+        "econ": 0.2,
+        "mil": 0.5,
+        "margin": 1.1,
+        "minWin": 0.45,
+        "guardMult": 0.6
       },
       "dragon": {
         "aggr": 2.5,

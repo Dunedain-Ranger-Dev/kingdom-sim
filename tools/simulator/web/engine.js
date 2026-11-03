@@ -183,6 +183,18 @@
         food: 0, gold: 0, res: 0, growth: 'normal', ai: 'balanced', goblinRule: false, buffTurns: 0,
         strength: 1, player: false, mode: 'gather', raiseDead: 0, lastProduced: null, trained: 0, hoard: 0, awake: false,
       }, k));
+      // Minor factions (minor): not on the map at the start; they appear later.
+      this.minors = {};
+      if (this.cfg.minor && this.cfg.minor.enabled) {
+        for (const [, f] of Object.entries(this.cfg.minor.factions)) {
+          const k = Object.assign({
+            food: 0, gold: 0, res: 0, growth: 'normal', ai: 'balanced', goblinRule: false, buffTurns: 0,
+            strength: 1, player: false, mode: 'gather', raiseDead: 0, lastProduced: null, trained: 0, hoard: 0, awake: false,
+          }, clone(f.kingdom), { minor: true, nextSpawn: f.firstRound, present: false });
+          this.kingdoms.push(k);
+          this.minors[k.id] = f;
+        }
+      }
       for (const k of this.kingdoms) {
         k.imports = (k.imports || []).map((c) => Object.assign({}, c));
         k.lost = Object.assign({}, k.lost || {}); // node id -> round this kingdom lost it
@@ -193,6 +205,7 @@
           actions: {}, capturesTried: 0, capturesWon: 0, raidsTried: 0, raidsWon: 0, hired: 0,
           battleLosses: 0, kills: 0, shortageLosses: 0, foodShortTurns: 0, goldShortTurns: 0,
           buffs: 0, nodesGained: 0, nodesLost: 0, stolen: { food: 0, gold: 0, res: 0, hoard: 0 }, turns: 0, upsets: 0, broodWoke: 0, firstWoke: 0, turnsAwake: 0, hoardLost: 0,
+          spawns: 0, turnsPresent: 0,
         };
         this.K[k.id] = k;
       }
@@ -219,6 +232,8 @@
       this.pcache = {};
       // The council's influence by group (politics), and the simulator's stand-in quests' own random numbers.
       this.questRand = mulberry32(this.seed ^ 0x2545F491);
+      // Where minor factions appear: their own random numbers, so they don't move any other roll.
+      this.spawnRand = mulberry32(this.seed ^ 0x1B873593);
       this.influence = {};
       if (this.politicsOn()) for (const [id, group] of Object.entries(this.cfg.politics.groups)) this.influence[id] = group.baseline;
       this.snapshot(0);
@@ -305,6 +320,53 @@
       const s = (k.strength || 1) + (k.trained > 0 ? k.trained * this.cfg.train.step : 0);
       return k.awake ? s * this.cfg.brood.strength : s;
     }
+    // The start of a minor faction's turn: if it has lost everything it fades away until it can come back; once it
+    // can, it appears; while it's on the map, its nodes gather recruits. Returns whether it's on the map to act.
+    minorTurn(k) {
+      const f = this.minors[k.id];
+      let owned = this.ownedNodes(k.id);
+      if (!owned.length) {
+        if (k.present) {
+          k.present = false;
+          k.nextSpawn = this.round + f.respawn;
+          this.emit(k.id, 'react', `${k.name} have been driven out, for now.`);
+        }
+        if (this.round < k.nextSpawn || !this.spawn(k, f)) return false;
+        owned = this.ownedNodes(k.id);
+      }
+      // Recruits, until the faction's whole army reaches its cap.
+      let room = f.maxArmy > 0 ? f.maxArmy - this.army(k.id) : Infinity;
+      for (const n of owned) {
+        const add = Math.max(0, Math.min(f.recruit, this.garrisonCap(n) - n.garrison, room));
+        n.garrison += add;
+        room -= add;
+      }
+      k.stats.turnsPresent++;
+      return true;
+    }
+    // A minor faction appears: on an unowned node of its types if there is one, else on one held more weakly than its troops.
+    spawn(k, f) {
+      const open = [], weak = [];
+      for (const n of this.nodes) {
+        if (n.type === 'capital' || !f.types.includes(n.type)) continue;
+        if (!n.owner) open.push(n);
+        else if (!this.K[n.owner].minor && n.garrison < f.spawnTroops) weak.push(n);
+      }
+      const from = open.length ? open : weak;
+      if (!from.length) return false;
+      const n = from[Math.floor(this.spawnRand() * from.length)], was = n.owner;
+      if (was) { this.K[was].stats.nodesLost++; this.K[was].lost[n.id] = this.round; }
+      n.owner = k.id;
+      n.garrison = Math.min(f.spawnTroops, this.garrisonCap(n));
+      n.upgrade = null;
+      n.morale = 10;
+      n.capturedRound = this.round;
+      k.present = true;
+      k.stats.spawns++;
+      k.stats.nodesGained++;
+      this.emit(k.id, 'react', `${k.name} appear at ${n.name}${was ? `, taking it from ${this.kname(was)}` : ''}.`);
+      return true;
+    }
     politicsOn() { const p = this.cfg.politics; return !!(p && p.enabled); }
     // A quest done for a group (a player's, or the simulator's stand-in) raises its influence on the council.
     questDone(group) { if (this.politicsOn() && group in this.influence) this.influence[group] = this.influence[group] + this.cfg.politics.questInfluence; }
@@ -363,9 +425,10 @@
     army(kid) { let s = 0; for (const n of this.nodes) if (n.owner === kid) s += n.garrison; return s; }
     // Node output plus food arriving from import contracts (nodesOnly leaves the imports out).
     income(kid, nodesOnly) {
-      const t = { food: 0, gold: 0, prod: 0 };
+      const t = { food: 0, gold: 0, prod: 0 }, minor = this.K[kid].minor; // minor factions live off the land: their nodes cost them nothing to run
       for (const n of this.nodes) if (n.owner === kid) {
-        const o = this.output(n); t.food += o.food; t.gold += o.gold; t.prod += o.prod;
+        const o = this.output(n), f = (v) => (minor ? Math.max(0, v) : v);
+        t.food += f(o.food); t.gold += f(o.gold); t.prod += f(o.prod);
       }
       if (!nodesOnly) t.food += this.importedFood(kid);
       return t;
@@ -458,7 +521,7 @@
     finishProduction() {
       const cur = this.cur, kid = cur.kid, k = this.K[kid], c = this.cfg;
       // Upkeep
-      const army = this.army(kid), up = this.upkeepFor(army, kid);
+      const army = this.army(kid), up = k.minor ? { batches: 0, food: 0, gold: 0 } : this.upkeepFor(army, kid); // minor factions live off the land
       k.food = r2(k.food - up.food); k.gold = r2(k.gold - up.gold);
       // Optional stockpile tax: a share of gold above the tax-free amount is lost each upkeep (0 = off).
       if (c.goldTax.rate > 0 && k.gold > c.goldTax.free) k.gold = r2(k.gold - (k.gold - c.goldTax.free) * c.goldTax.rate);
@@ -468,7 +531,7 @@
       const short = kinds.length;
       this.emit(kid, 'phase', `Upkeep for ${army} soldiers (${up.batches} batches): −${up.food} food, −${up.gold} gold`);
       if (short) {
-        const largest = this.ownedNodes(kid).reduce((a, b) => (b.garrison > a.garrison ? b : a), this.capital(kid));
+        const largest = this.ownedNodes(kid).reduce((a, b) => (!a || b.garrison > a.garrison ? b : a), this.capital(kid)); // a minor faction has no capital
         const loss = Math.min(largest.garrison, c.shortagePenalty * short);
         largest.garrison -= loss;
         k.stats.shortageLosses += loss;
@@ -487,7 +550,8 @@
       for (const c of k.imports) c.turnsLeft--;
       k.imports = k.imports.filter((c) => c.turnsLeft > 0);
       cur.phase = 'actions';
-      cur.generalLeft = this.cfg.baseActions + this.bonusActions(kid);
+      const minor = this.minors[kid];
+      cur.generalLeft = minor && minor.actions > 0 ? minor.actions : this.cfg.baseActions + this.bonusActions(kid);
       cur.extraLeft = this.cfg.nonCombatActions.count;
       cur.actionsTotal = cur.actionsLeft = cur.generalLeft + cur.extraLeft;
       return cur;
@@ -527,6 +591,7 @@
     step() {
       if (this.cur) return 'waiting';
       const kid = this.currentKid(), k = this.K[kid];
+      if (k.minor && !this.minorTurn(k)) { this.endTurn(); return 'done'; } // not on the map this turn
       this.beginTurn();
       if (k.ai === 'manual') return 'manual';
       this.aiBuff(kid);
@@ -719,12 +784,17 @@
           const near = this.adj[target.id].map((id) => this.N[id]).filter((n) => n.owner === kid);
           at = near.length ? near.reduce((a, b) => (b.garrison > a.garrison ? b : a)) : this.capital(kid);
         }
+        if (!at) {
+          // A kingdom with no capital (a minor faction) raises them at its biggest node, if it has one left.
+          for (const n of this.ownedNodes(kid)) if (!at || n.garrison > at.garrison) at = n;
+          if (!at) continue;
+        }
         const cap = this.capital(kid);
         const fit = Math.max(0, Math.min(raised, this.garrisonCap(at) - at.garrison));
         at.garrison += fit;
         if (raised > fit && cap) cap.garrison += raised - fit;
         k.stats.raised = (k.stats.raised || 0) + raised;
-        this.emit(kid, 'react', `Raise dead: ${raised} of the ${total} fallen rise at ${fit ? at.name : cap.name}${raised > fit && fit ? ` (${raised - fit} at ${cap.name})` : ''}.`);
+        this.emit(kid, 'react', `Raise dead: ${raised} of the ${total} fallen rise at ${fit || !cap ? at.name : cap.name}${raised > fit && fit && cap ? ` (${raised - fit} at ${cap.name})` : ''}.`);
       }
     }
 
@@ -1133,7 +1203,7 @@
           : base + Math.max(0, Vfull(this.baseOutput(t, afterTier)) * 0.7) * H * 0.6;
         if (k.lost[t.id] != null) g *= P.retake;
         if (P.homeRadius) g *= home.has(t.id) ? P.homeBias : 0.7;
-        return g;
+        return g * bounty(t);
       };
       // Behaviour: new conquests that still need securing before expanding again.
       const unsecured = P.secureNew ? owned.filter((n) => recent(n.capturedRound, 8) && n.type !== 'capital' &&
@@ -1154,6 +1224,11 @@
       const dice = diceOn(c.combat.dice);
       // War-only kingdoms (the Orcs) take fights whatever the odds, unless they have a risk appetite to hold them to.
       const anyFight = !!P.warOnly && !(dice && P.minWin > 0);
+      // A minor faction holds only so much land; past that it only raids.
+      const minor = this.minors[kid];
+      const expand = !minor || owned.length < minor.maxNodes;
+      // The bounty on a node held by a minor faction, for anyone but another minor faction.
+      const bounty = (t) => (k.minor || !t.owner || !this.K[t.owner].minor ? 1 : c.minor.bounty);
 
       // Captures and raids
       if (attacks) for (const from of owned) {
@@ -1164,7 +1239,7 @@
           if (t.owner === kid) continue;
           const dp = this.defPower(t);
           if (!allowTarget(t, avail * hm, dp)) continue;
-          if (t.type !== 'capital' && (anyFight || avail * hm > dp * P.margin)) {
+          if (expand && t.type !== 'capital' && (anyFight || avail * hm > dp * P.margin)) {
             const capture = { type: heroic ? 'heroic' : 'capture', from: from.id, target: tid, troops: avail };
             if (dice) {
               // With dice, the land is only won some of the time; the losses are what each side expects to lose.
@@ -1204,7 +1279,8 @@
             const dev = Math.min(c.raid.devMax, c.raid.devPer10 * Math.floor(lootTroops / 10));
             const harm = Vfull(this.baseOutput(t)) * dev * 4 * 0.3;
             const loot = chance * best.val;
-            const score = P.raid * (loot + dL * SV * 0.7 + chance * harm - (aL - raised) * SV);
+            let score = P.raid * (loot + dL * SV * 0.7 + chance * harm - (aL - raised) * SV);
+            if (score > 0) score *= bounty(t);
             if (loot > 0 || dL > 0) add(score, { type: 'raid', from: from.id, target: tid, troops: avail, resource: best.res });
           }
         }
@@ -1214,7 +1290,7 @@
       // Resource nodes and outposts cap their garrison, so only stages that can hold enough troops count.
       let blocked = null;
       if (attacks) for (const t of this.nodes) {
-        if (t.owner === kid || t.type === 'capital') continue;
+        if (!expand || t.owner === kid || t.type === 'capital') continue;
         const stages = this.adj[t.id].map((id) => this.N[id]).filter((n) => n.owner === kid);
         if (!stages.length) continue;
         const dp = this.defPower(t);
