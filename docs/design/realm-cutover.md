@@ -50,7 +50,7 @@ seed, and a test can check that.
 Each phase is its own change, tested and merged before the next. The old engine keeps running until phase 3, behind a
 config switch (`realmEngine = legacy | sim`), so the server never has a broken realm.
 
-1. **Make the simulator embeddable** (in `sim`, no Minecraft code)
+1. **Make the simulator embeddable** (in `sim`, no Minecraft code). Done 2026-11-03: `GameSave`, `Game.holdBattle` and `Game.settle`, open-ended games (`maxRounds` 0)
    - Save and load a whole game: kingdoms, nodes, round, whose turn it is, and the random number generators' states.
      Test: save halfway through, load and finish, and get the same fingerprint as a game never saved.
    - An endless game: no last round, and no "winner" (scoring only matters in batch runs).

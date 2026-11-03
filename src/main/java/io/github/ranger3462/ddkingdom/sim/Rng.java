@@ -10,6 +10,15 @@ public final class Rng {
         state = seed;
     }
 
+    /** Where it is in its sequence, for saving a game (GameSave). */
+    int state() {
+        return state;
+    }
+
+    void state(int state) {
+        this.state = state;
+    }
+
     /** A number in [0, 1). */
     public double next() {
         state += 0x6D2B79F5;

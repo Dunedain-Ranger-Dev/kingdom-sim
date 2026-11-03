@@ -11,7 +11,24 @@ public final class Combat {
      * What a battle did. {@code ap} and {@code dp} are the two sides' power; {@code survivors} are the attacker's troops
      * left (those that retreat, on a loss).
      */
-    public record Battle(boolean win, double ap, double dp, int survivors, int attackerLosses, int defenderRemaining, int defenderLosses) {}
+    public record Battle(boolean win, double ap, double dp, int survivors, int attackerLosses, int defenderRemaining, int defenderLosses) {
+        /**
+         * This battle's numbers held to {@code troops} attacking and a {@code garrison} defending, with losses to match;
+         * a won {@code capture} leaves no defenders.
+         */
+        Battle against(int troops, int garrison, boolean capture) {
+            int s = Math.max(0, Math.min(troops, survivors)), d = win && capture ? 0 : Math.max(0, Math.min(garrison, defenderRemaining));
+            return new Battle(win, ap, dp, s, troops - s, d, garrison - d);
+        }
+    }
+
+    /**
+     * A battle fought out in the world, to settle a held attack ({@link Game#settle}): whether the attackers won, how
+     * many of them are left, and how many defenders. A won capture leaves no defenders, whatever's given.
+     */
+    public static Battle fought(boolean win, int survivors, int defendersLeft) {
+        return new Battle(win, 0, 0, survivors, 0, defendersLeft, 0);
+    }
 
     /**
      * The dice in a battle: each side's power is multiplied, then added to. {@link #NONE} is the battle as the rules

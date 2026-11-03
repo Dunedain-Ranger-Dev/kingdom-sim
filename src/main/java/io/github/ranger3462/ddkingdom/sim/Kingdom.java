@@ -38,7 +38,7 @@ public final class Kingdom {
     public boolean present;
     /** The round it last used Produce Resources (null: never), for its cooldown. */
     public Integer lastProduced;
-    public final Stats stats = new Stats();
+    public Stats stats = new Stats();
 
     /** A food import: {@code food} a turn for {@code turnsLeft} more turns. */
     public static final class Contract {

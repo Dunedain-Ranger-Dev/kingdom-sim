@@ -7,6 +7,7 @@ import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.function.BiPredicate;
 import java.util.Set;
 
 /**
@@ -48,6 +49,26 @@ public final class Game {
 
     public record LogEntry(int round, String kid, String kind, String text) {}
 
+    /** A held attack: {@code troops} of {@code kid}'s from {@code from} on {@code target}, declared in {@code round}. */
+    public static final class HeldBattle {
+        public final int id, troops, round;
+        public final Action.Type kind;
+        public final String kid, from, target;
+        /** What a raid is for (food, gold, res or hoard); null for a capture. */
+        public final String resource;
+
+        HeldBattle(int id, Action.Type kind, String kid, String from, String target, String resource, int troops, int round) {
+            this.id = id;
+            this.kind = kind;
+            this.kid = kid;
+            this.from = from;
+            this.target = target;
+            this.resource = resource;
+            this.troops = troops;
+            this.round = round;
+        }
+    }
+
     public record Output(double food, double gold, double prod) {}
 
     public record Upkeep(int batches, double food, double gold) {}
@@ -65,10 +86,12 @@ public final class Game {
     /** A garrison with no cap. */
     public static final int UNCAPPED = Integer.MAX_VALUE;
     private static final int LOG_LIMIT = 4000;
+    /** Rounds of history an open-ended game keeps. */
+    static final int HISTORY_KEPT = 100;
 
     public final Rules rules;
     public final int seed;
-    final Rng rand;
+    Rng rand;
     public final int maxRounds;
     public final boolean quiet;
     public final List<Kingdom> kingdoms = new ArrayList<>();
@@ -86,10 +109,19 @@ public final class Game {
     final GameAi ai;
     /** The council's influence by group (Rules.Politics), and the simulator's stand-in quests' own random numbers. */
     public final Map<String, Double> influence = new LinkedHashMap<>();
-    private final Rng questRng;
+    Rng questRng;
     /** Where minor factions appear: their own random numbers, so they don't move any other roll. */
-    private final Rng spawnRng;
+    Rng spawnRng;
     final Map<String, Rules.MinorFaction> minors = new LinkedHashMap<>();
+    /** Attacks declared and waiting to be fought, oldest first (see {@link #holdBattle}). */
+    public final List<HeldBattle> held = new ArrayList<>();
+    int nextHeld = 1;
+    /**
+     * Which attacks wait for the host to settle them ({@link #settle}), given the attacker's id and its target: a fight
+     * a player can join in the world. The attack is declared and its troops leave (still counted in the attacker's
+     * army), but nothing is fought until it's settled. Null holds none.
+     */
+    public BiPredicate<String, Node> holdBattle;
 
     /**
      * A new game on {@code map}. {@code maxRounds} is how long the AI expects the game to last (0: open-ended);
@@ -189,6 +221,9 @@ public final class Game {
                     r2(inc.gold() - up.gold()), r2(inc.prod())));
         }
         history.add(new Snapshot(round, row));
+        if (maxRounds == 0 && history.size() > HISTORY_KEPT) {
+            history.remove(0); // an open-ended game keeps only the latest rounds
+        }
     }
 
     /** Rounds to hundredths, as the simulator does. */
@@ -501,6 +536,11 @@ public final class Game {
         for (Node n : nodes) {
             if (n.ownedBy(kid)) {
                 total += n.garrison;
+            }
+        }
+        for (HeldBattle b : held) {
+            if (b.kid.equals(kid)) {
+                total += b.troops; // away in an attack still to be fought
             }
         }
         return total;
@@ -1050,28 +1090,42 @@ public final class Game {
     }
 
     private void capture(String kid, Action a, boolean heroic) {
+        Action.Type kind = heroic ? Action.Type.HEROIC : Action.Type.CAPTURE;
+        Attack at = attackChecks(kid, a, kind);
+        if (!hold(kid, at, kind, null)) {
+            fightCapture(kid, at.from(), at.target(), at.troops(), heroic, false, null);
+        }
+    }
+
+    /**
+     * A capture's fight: {@code away} when its troops already left (a held attack), {@code live} for a battle fought
+     * in the world (null rolls the dice).
+     */
+    private void fightCapture(String kid, Node from, Node target, int troops, boolean heroic, boolean away, Combat.Battle live) {
         Rules c = rules;
         Kingdom k = K.get(kid);
-        Attack at = attackChecks(kid, a, heroic ? Action.Type.HEROIC : Action.Type.CAPTURE);
-        Node from = at.from(), target = at.target();
-        int troops = at.troops();
-        watchtowerWarning(target);
+        if (!away) {
+            watchtowerWarning(target);
+        }
         String defender = target.owner;
         double fd = finalDefense(target), dp = defPower(target);
         int g = target.garrison;
-        Combat.Dice dice = Combat.Dice.roll(c.combat.dice, rand);
-        Combat.Battle r = Combat.capture(c, troops, g, dp, heroic, strength(kid), dice);
+        Combat.Dice dice = live != null ? Combat.Dice.NONE : Combat.Dice.roll(c.combat.dice, rand);
+        Combat.Battle r = live != null ? live.against(troops, g, true) : Combat.capture(c, troops, g, dp, heroic, strength(kid), dice);
         k.stats.capturesTried++;
         k.stats.attacksOn.merge(defender == null ? "none" : defender, 1, Integer::sum);
         if (dice.rolled() && r.win() != Combat.capture(c, troops, g, dp, heroic, strength(kid)).win()) {
             k.stats.upsets++;
         }
-        from.garrison -= troops;
-        hitMorale(target, c.morale.attacked);
-        target.attackedRound = round;
+        if (!away) {
+            from.garrison -= troops;
+            hitMorale(target, c.morale.attacked);
+            target.attackedRound = round;
+        }
+        Node home = away ? homeFor(kid, from) : from; // where the survivors go back to
         String head = quiet ? "" : (heroic ? "Heroic conquest" : "Capture") + ": " + troops + (heroic ? " (×" + num(c.combat.heroicMult) + ")" : "")
                 + " from " + from.name + " vs " + target.name + " [" + kname(defender) + ", " + g + " garrison, defense " + num(r2(fd)) + ", power " + num(r2(dp)) + "]"
-                + rolls(dice, r);
+                + rolls(dice, r) + (live != null ? ", fought in the world" : "");
         k.stats.battleLosses += r.attackerLosses();
         k.stats.kills += r.defenderLosses();
         if (defender != null) {
@@ -1100,23 +1154,101 @@ public final class Game {
             }
             int keep = Math.min(r.survivors(), garrisonCap(target));
             target.garrison = keep;
-            from.garrison += r.survivors() - keep;
-            raiseDead(kid, defender, from, target, r);
+            addTroops(home, r.survivors() - keep);
+            raiseDead(kid, defender, home, target, r);
             if (!quiet) {
-                emit(kid, "capture", head + " → CAPTURED. " + r.survivors() + " survive (√(" + num(r2(r.ap())) + "² − " + num(r2(r.dp())) + "²)"
-                        + (heroic ? " ÷ " + num(c.combat.heroicMult) : "") + "); " + target.name + " drops to " + target.tierName() + " (T" + target.tier
+                emit(kid, "capture", head + " → CAPTURED. " + r.survivors() + " survive"
+                        + (live != null ? "" : " (√(" + num(r2(r.ap())) + "² − " + num(r2(r.dp())) + "²)" + (heroic ? " ÷ " + num(c.combat.heroicMult) : "") + ")") + "; " + target.name + " drops to " + target.tierName() + " (T" + target.tier
                         + "), devastation " + num(target.devastation) + (target.upgrade != null ? "; free rebuild to T1 next turn" : "") + "."
                         + (keep < r.survivors() ? " " + (r.survivors() - keep) + " over the garrison cap return home." : ""));
             }
         } else {
             target.garrison = r.defenderRemaining();
-            from.garrison += r.survivors();
-            hitMorale(from, c.morale.lost);
-            if (!quiet) {
-                emit(kid, "fail", head + " → REPELLED. " + r.survivors() + " retreat (" + num(c.combat.retreat * 100) + "%); defenders keep "
-                        + r.defenderRemaining() + " of " + g + ".");
+            addTroops(home, r.survivors());
+            if (home != null) {
+                hitMorale(home, c.morale.lost);
             }
-            raiseDead(kid, defender, from, target, r);
+            if (!quiet) {
+                emit(kid, "fail", head + " → REPELLED. " + r.survivors() + " retreat" + (live != null ? "" : " (" + num(c.combat.retreat * 100) + "%)")
+                        + "; defenders keep " + r.defenderRemaining() + " of " + g + ".");
+            }
+            raiseDead(kid, defender, home, target, r);
+        }
+    }
+
+    /** Holds an attack for the host if {@link #holdBattle} says so: its troops leave, and it waits to be settled. */
+    private boolean hold(String kid, Attack at, Action.Type kind, String resource) {
+        Node from = at.from(), target = at.target();
+        if (holdBattle == null || !holdBattle.test(kid, target)) {
+            return false;
+        }
+        watchtowerWarning(target);
+        from.garrison -= at.troops();
+        hitMorale(target, rules.morale.attacked);
+        target.attackedRound = round;
+        held.add(new HeldBattle(nextHeld++, kind, kid, from.id, target.id, resource, at.troops(), round));
+        if (!quiet) {
+            emit(kid, "held", (kind == Action.Type.RAID ? "Raid (" + resource + ")" : kind == Action.Type.HEROIC ? "Heroic conquest" : "Capture")
+                    + ": " + at.troops() + " from " + from.name + " march on " + target.name + " [" + kname(target.owner) + "]; the fight is still to come.");
+        }
+        return true;
+    }
+
+    /** Settles a held attack with the dice. */
+    public void settle(int id) {
+        settle(id, null);
+    }
+
+    /**
+     * Settles a held attack with a battle fought in the world ({@link Combat#fought}), or with the dice if {@code live}
+     * is null. If the target has changed hands since (to the attacker, or a raid's to no one), there's nothing to fight
+     * and the troops go home.
+     */
+    public void settle(int id, Combat.Battle live) {
+        HeldBattle b = null;
+        for (HeldBattle h : held) {
+            if (h.id == id) {
+                b = h;
+            }
+        }
+        if (b == null) {
+            throw new RuleException("No held attack " + id + ".");
+        }
+        held.remove(b);
+        Node from = N.get(b.from), target = N.get(b.target);
+        if (target.ownedBy(b.kid) || b.kind == Action.Type.RAID && target.owner == null) {
+            Node home = b.kind != Action.Type.RAID && target.ownedBy(b.kid) ? target : homeFor(b.kid, from);
+            addTroops(home, b.troops);
+            if (!quiet) {
+                emit(b.kid, "react", b.troops + " troops march on " + target.name + " and find nothing to fight.");
+            }
+            return;
+        }
+        if (b.kind == Action.Type.RAID) {
+            fightRaid(b.kid, from, target, b.troops, b.resource, true, live);
+        } else {
+            fightCapture(b.kid, from, target, b.troops, b.kind == Action.Type.HEROIC, true, live);
+        }
+    }
+
+    /** Where an attack's troops go back to: where they came from if it's still the attacker's, else its capital or biggest node. */
+    private Node homeFor(String kid, Node from) {
+        if (from.ownedBy(kid)) {
+            return from;
+        }
+        Node home = capital(kid);
+        for (Node n : ownedNodes(kid)) {
+            if (home == null || home.type != NodeType.CAPITAL && n.garrison > home.garrison) {
+                home = n;
+            }
+        }
+        return home;
+    }
+
+    /** Troops back home; with no home left, they're lost. */
+    private static void addTroops(Node home, int troops) {
+        if (home != null) {
+            home.garrison += troops;
         }
     }
 
@@ -1271,38 +1403,49 @@ public final class Game {
     }
 
     private void raid(String kid, Action a) {
+        Attack at = attackChecks(kid, a, Action.Type.RAID);
+        if (!hold(kid, at, Action.Type.RAID, a.resource())) {
+            fightRaid(kid, at.from(), at.target(), at.troops(), a.resource(), false, null);
+        }
+    }
+
+    /** A raid's fight, held ({@code away}) or not, fought in the world ({@code live}) or rolled: see {@link #fightCapture}. */
+    private void fightRaid(String kid, Node from, Node target, int troops, String resource, boolean away, Combat.Battle live) {
         Rules c = rules;
         Kingdom k = K.get(kid);
-        Attack at = attackChecks(kid, a, Action.Type.RAID);
-        Node from = at.from(), target = at.target();
-        int troops = at.troops();
-        watchtowerWarning(target);
+        if (!away) {
+            watchtowerWarning(target);
+        }
         String defender = target.owner;
         Kingdom dk = K.get(defender);
         double fd = finalDefense(target), dp = defPower(target);
         int g = target.garrison;
-        Combat.Dice dice = Combat.Dice.roll(c.combat.dice, rand);
-        Combat.Battle r = Combat.raid(c, troops, g, dp, strength(kid), dice);
+        Combat.Dice dice = live != null ? Combat.Dice.NONE : Combat.Dice.roll(c.combat.dice, rand);
+        Combat.Battle r = live != null ? live.against(troops, g, false) : Combat.raid(c, troops, g, dp, strength(kid), dice);
         k.stats.raidsTried++;
         k.stats.attacksOn.merge(defender, 1, Integer::sum);
         if (dice.rolled() && r.win() != Combat.raid(c, troops, g, dp, strength(kid)).win()) {
             k.stats.upsets++;
         }
-        from.garrison -= troops;
-        hitMorale(target, c.morale.attacked);
-        target.attackedRound = round;
+        if (!away) {
+            from.garrison -= troops;
+            hitMorale(target, c.morale.attacked);
+            target.attackedRound = round;
+        }
+        Node home = away ? homeFor(kid, from) : from;
         k.stats.battleLosses += r.attackerLosses();
         k.stats.kills += r.defenderLosses();
         dk.stats.battleLosses += r.defenderLosses();
         noteAttack(kid, defender, r.win());
-        String head = quiet ? "" : "Raid (" + a.resource() + "): " + troops + " from " + from.name + " vs " + target.name + " [" + dk.name + ", " + g
-                + " garrison, defense " + num(r2(fd)) + ", power " + num(r2(dp)) + "]" + rolls(dice, r);
+        String head = quiet ? "" : "Raid (" + resource + "): " + troops + " from " + from.name + " vs " + target.name + " [" + dk.name + ", " + g
+                + " garrison, defense " + num(r2(fd)) + ", power " + num(r2(dp)) + "]" + rolls(dice, r)
+                + (live != null ? ", fought in the world" : "");
         if (r.win()) {
             k.stats.raidsWon++;
             target.garrison = r.defenderRemaining();
-            from.garrison += r.survivors();
+            addTroops(home, r.survivors());
             hitMorale(target, c.morale.lost);
-            Steal s = raidSteal(target, a.resource(), r.survivors());
+            Steal s = raidSteal(target, resource, r.survivors());
             if (s.amount() > 0) {
                 addStockpile(dk, s.key(), -s.amount());
                 addStockpile(k, "hoard".equals(s.key()) ? "gold" : s.key(), s.amount()); // a stolen hoard is just gold to the thief
@@ -1319,20 +1462,22 @@ public final class Game {
             }
             double dev = Math.min(c.raid.devMax, c.raid.devPer10 * Math.floor(r.survivors() / 10.0));
             target.devastation = r2(Math.min(1, target.devastation + dev));
-            raiseDead(kid, defender, from, target, r);
+            raiseDead(kid, defender, home, target, r);
             if (!quiet) {
                 emit(kid, "raid", head + " → SUCCESS. " + r.survivors() + " return, defenders lose " + r.defenderLosses() + ". Stole " + num(s.amount()) + " "
-                        + a.resource() + (s.key() != null ? (s.cap() == Double.POSITIVE_INFINITY ? "" : " (cap " + num(s.cap()) + ")") : " (outposts yield nothing)")
+                        + resource + (s.key() != null ? (s.cap() == Double.POSITIVE_INFINITY ? "" : " (cap " + num(s.cap()) + ")") : " (outposts yield nothing)")
                         + "; devastation +" + num(dev) + ".");
             }
         } else {
             target.garrison = r.defenderRemaining();
-            from.garrison += r.survivors();
-            hitMorale(from, c.morale.lost);
+            addTroops(home, r.survivors());
+            if (home != null) {
+                hitMorale(home, c.morale.lost);
+            }
             if (!quiet) {
                 emit(kid, "fail", head + " → REPELLED. " + r.survivors() + " retreat; defenders keep " + r.defenderRemaining() + " of " + g + ".");
             }
-            raiseDead(kid, defender, from, target, r);
+            raiseDead(kid, defender, home, target, r);
         }
     }
 
