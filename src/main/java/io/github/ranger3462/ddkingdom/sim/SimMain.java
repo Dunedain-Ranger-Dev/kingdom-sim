@@ -238,15 +238,18 @@ public final class SimMain {
             }
         }
         double g = games;
+        // The name column fits the longest id (minor factions have long ones).
+        int w = Math.max(4, per.keySet().stream().mapToInt(String::length).max().orElse(4));
+        String name = "  %-" + w + "s";
         System.out.printf(Locale.ROOT, "%s: %d games of %d rounds (%d ms). Averages per game; peaks are the average game's peak, then the highest in any game. Tier: of its nodes at the end, capitals left out (tier*: watchtowers left out too). Value: its nodes' tiers added up; leads: the most value at the end.%n",
                 map.name, games, rounds, System.currentTimeMillis() - start);
         System.out.printf(Locale.ROOT, "  ruins at the end %.1f | unowned %.1f | battles turned by the dice %.1f%%%n", ruins / g, unowned / g,
                 100 * upsets / Math.max(1, attacks));
-        System.out.printf(Locale.ROOT, "  %-4s %6s %6s %6s %11s %5s %5s %6s %11s %14s %13s %21s %6s %6s%n", "", "nodes", "value", "avg", "peak", "tier", "tier*", "army", "peak army",
+        System.out.printf(Locale.ROOT, name + " %6s %6s %6s %11s %5s %5s %6s %11s %14s %13s %21s %6s %6s%n", "", "nodes", "value", "avg", "peak", "tier", "tier*", "army", "peak army",
                 "conquests(won)", "raids(won)", "stolen food/gold/res", "gold", "leads");
         for (Map.Entry<String, Totals> e : per.entrySet()) {
             Totals t = e.getValue();
-            System.out.printf(Locale.ROOT, "  %-4s %6.1f %6.1f %6.1f %5.1f / %-3.0f %5.2f %5.2f %6.0f %5.0f / %-4.0f %7.1f (%4.1f) %6.1f (%4.1f) %6.0f/%6.0f/%6.0f %6.0f %5.0f%%%n",
+            System.out.printf(Locale.ROOT, name + " %6.1f %6.1f %6.1f %5.1f / %-3.0f %5.2f %5.2f %6.0f %5.0f / %-4.0f %7.1f (%4.1f) %6.1f (%4.1f) %6.0f/%6.0f/%6.0f %6.0f %5.0f%%%n",
                     e.getKey(), t.endNodes / g, t.landValue / g, t.avgNodes / g, t.peakNodes / g, t.maxPeakNodes, t.tierGames == 0 ? 0 : t.tierSum / t.tierGames,
                     t.landTierGames == 0 ? 0 : t.landTierSum / t.landTierGames,
                     t.avgArmy / g, t.peakArmy / g, t.maxPeakArmy, t.conquests / g, t.conquestsWon / g, t.raids / g, t.raidsWon / g,
@@ -278,14 +281,14 @@ public final class SimMain {
         List<String> targets = new ArrayList<>(per.keySet());
         targets.add("none");
         System.out.println("  attacks aimed at (% of each kingdom's conquests and raids):");
-        StringBuilder head = new StringBuilder("  " + " ".repeat(4));
+        StringBuilder head = new StringBuilder("  " + " ".repeat(w));
         for (String target : targets) {
             head.append(String.format(Locale.ROOT, "%9s", target.equals("none") ? "unowned" : target));
         }
         System.out.println(head);
         for (Map.Entry<String, Totals> e : per.entrySet()) {
             double total = e.getValue().attacksOn.values().stream().mapToDouble(Double::doubleValue).sum();
-            StringBuilder row = new StringBuilder(String.format(Locale.ROOT, "  %-4s", e.getKey()));
+            StringBuilder row = new StringBuilder(String.format(Locale.ROOT, name, e.getKey()));
             for (String target : targets) {
                 double n = e.getValue().attacksOn.getOrDefault(target, 0.0);
                 row.append(target.equals(e.getKey()) ? String.format(Locale.ROOT, "%9s", "-") : String.format(Locale.ROOT, "%8.0f%%", total == 0 ? 0 : 100 * n / total));
