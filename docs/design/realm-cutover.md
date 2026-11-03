@@ -57,7 +57,9 @@ config switch (`realmEngine = legacy | sim`), so the server never has a broken r
    - **Held battles**: let the host say "don't settle a fight on this node now". The attack is declared and waits;
      the host settles it later with a result (survivors and losses on each side), or asks the dice to settle it.
    - Whatever the simulator logs becomes realm news, by kind.
-2. **The realm runs a `Game`** (`Realm`, `RealmTurns`, behind the switch)
+2. **The realm runs a `Game`** (`Realm`, `RealmTurns`, behind the switch). Done 2026-11-03: `SimRealm`, `RealmSimTurns`,
+   `/realm sim` (start, place, unplaced, info, set, owner, stock, turn), `realmEngine` (still `legacy` by default).
+   `realmTurnMinutes` stays 20 until the switch, when it's set to 60
    - The realm's saved data holds the game; each sim node is tied to a place in the world (dimension and position).
    - The clock (now hourly) and the catch-up cap stay; each tick of it runs one round.
    - Attacks on the Hearthbound's nodes with a player within 48 blocks are held for dusk; every other fight is

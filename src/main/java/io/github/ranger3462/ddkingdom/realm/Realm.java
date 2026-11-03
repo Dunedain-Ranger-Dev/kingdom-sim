@@ -48,6 +48,16 @@ public final class Realm extends SavedData {
     final Map<String, Map<String, Integer>> purses = new LinkedHashMap<>();
     /** Raids declared and not yet resolved. */
     final List<Raid> raids = new ArrayList<>();
+    // --- The realm by the simulator's rules (docs/design/realm-cutover.md, see SimRealm and RealmSimTurns) ---
+
+    /** The simulator's realm, once started (/realm sim start); null until then. */
+    private SimRealm sim;
+    /** Where each of the simulator's nodes is in the world, by its id. */
+    private final Map<String, Place> simPlaces = new LinkedHashMap<>();
+
+    /** A place in the world. */
+    public record Place(ResourceKey<Level> dimension, BlockPos pos) {}
+
     /** The most recent happenings, oldest first. */
     final java.util.Deque<LogEntry> log = new java.util.ArrayDeque<>();
     static final int LOG_SIZE = 100;
@@ -373,6 +383,42 @@ public final class Realm extends SavedData {
                 .map(RealmNode::owner).distinct().toList();
     }
 
+    // --- The simulator's realm ---
+
+    public Optional<SimRealm> sim() {
+        return Optional.ofNullable(sim);
+    }
+
+    /**
+     * Starts the realm afresh by the simulator's rules. A simulator node with the same id as one of this realm's
+     * nodes is placed where that one is.
+     */
+    public void startSim(SimRealm fresh) {
+        sim = fresh;
+        for (io.github.ranger3462.ddkingdom.sim.Node n : fresh.game.nodes) {
+            RealmNode same = nodes.get(n.id);
+            if (same != null && !simPlaces.containsKey(n.id)) {
+                simPlaces.put(n.id, new Place(same.dimension(), same.pos()));
+            }
+        }
+        setDirty();
+    }
+
+    /** Where a simulator node is in the world, if it's been placed. */
+    public Optional<Place> simPlace(String id) {
+        return Optional.ofNullable(simPlaces.get(id));
+    }
+
+    public void setSimPlace(String id, ResourceKey<Level> dimension, BlockPos pos) {
+        simPlaces.put(id, new Place(dimension, pos));
+        setDirty();
+    }
+
+    /** Records what the simulator's realm did: news is told to players too. */
+    void recordSim(LogKind kind, String who, String text, boolean news) {
+        record(text, news, kind, who);
+    }
+
     // --- Saving ---
 
     @Override
@@ -417,6 +463,20 @@ public final class Realm extends SavedData {
             logList.add(entryTag);
         }
         tag.put("log", logList);
+        if (sim != null) {
+            tag.putByteArray("sim", sim.save().getBytes(java.nio.charset.StandardCharsets.UTF_8)); // too big for an NBT string
+        }
+        ListTag placeList = new ListTag();
+        simPlaces.forEach((id, place) -> {
+            CompoundTag one = new CompoundTag();
+            one.putString("id", id);
+            one.putString("dimension", place.dimension().location().toString());
+            one.putInt("x", place.pos().getX());
+            one.putInt("y", place.pos().getY());
+            one.putInt("z", place.pos().getZ());
+            placeList.add(one);
+        });
+        tag.put("sim_places", placeList);
         return tag;
     }
 
@@ -450,6 +510,21 @@ public final class Realm extends SavedData {
             CompoundTag raid = (CompoundTag) entry;
             realm.raids.add(new Raid(raid.getString("nation"), raid.getString("stronghold"), raid.getString("town"), raid.getInt("declared"),
                     raid.getLong("resolve_at")));
+        }
+        if (tag.contains("sim")) {
+            try {
+                realm.sim = SimRealm.load(new String(tag.getByteArray("sim"), java.nio.charset.StandardCharsets.UTF_8));
+            } catch (RuntimeException e) {
+                io.github.ranger3462.ddkingdom.KingdomSim.LOGGER.error("The realm's simulator game didn't load; it waits to be started again", e);
+            }
+        }
+        for (Tag entry : tag.getList("sim_places", Tag.TAG_COMPOUND)) {
+            CompoundTag one = (CompoundTag) entry;
+            net.minecraft.resources.ResourceLocation dimension = net.minecraft.resources.ResourceLocation.tryParse(one.getString("dimension"));
+            if (dimension != null) {
+                realm.simPlaces.put(one.getString("id"), new Place(ResourceKey.create(net.minecraft.core.registries.Registries.DIMENSION, dimension),
+                        new BlockPos(one.getInt("x"), one.getInt("y"), one.getInt("z"))));
+            }
         }
         for (Tag entry : tag.getList("log", Tag.TAG_COMPOUND)) {
             CompoundTag logged = (CompoundTag) entry;

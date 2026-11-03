@@ -16,7 +16,17 @@ public final class KingdomConfig {
                     "time away doesn't flatten the realm.")
             .defineInRange("realmCatchUpTurns", 24, 0, 1000);
 
+    public static final ModConfigSpec.ConfigValue<String> REALM_ENGINE = BUILDER
+            .comment("Which rules the realm plays by: legacy (as it always has) or sim (the simulator's, docs/design/realm-cutover.md).",
+                    "A sim realm is started with /realm sim start; until then, and while this is legacy, it waits.")
+            .define("realmEngine", "legacy", value -> "legacy".equals(value) || "sim".equals(value));
+
     static final ModConfigSpec SPEC = BUILDER.build();
+
+    /** Whether the realm plays by the simulator's rules. */
+    public static boolean simEngine() {
+        return "sim".equals(REALM_ENGINE.get());
+    }
 
     private KingdomConfig() {}
 }

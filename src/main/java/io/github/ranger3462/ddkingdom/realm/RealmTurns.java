@@ -52,6 +52,11 @@ public final class RealmTurns {
         if (event.getServer().getTickCount() % 20 == 0) {
             Realm realm = Realm.get(event.getServer());
             long now = System.currentTimeMillis();
+            if (KingdomConfig.simEngine()) {
+                RealmSimTurns.tick(event.getServer(), realm, now); // the simulator's rules (docs/design/realm-cutover.md)
+                tellNews(event.getServer(), realm);
+                return;
+            }
             RandomSource random = event.getServer().overworld().getRandom();
             catchUp(realm, now, random);
             RealmRaids.resolveDue(event.getServer(), realm, now, random);
