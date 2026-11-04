@@ -129,6 +129,7 @@ public class TierAndDangerTests {
         ServerLevel level = helper.getLevel();
         Realm realm = new Realm();
         BlockPos at = helper.absolutePos(new BlockPos(1, 2, 1));
+        TestArena.loadAround(level, at, 2 * io.github.ranger3462.ddkingdom.realm.RealmGarrison.POST_RING); // its guards stand round it, beyond the test's own area
         RealmNode town = new RealmNode("riverhold", RealmNode.Type.TOWN, RealmNode.KINGDOM, level.dimension(), at);
         realm.add(town);
         realm.add(new RealmNode("warren", RealmNode.Type.STRONGHOLD, DungeonFactions.GOBLINS, level.dimension(), at.offset(200, 0, 0)));
@@ -153,7 +154,7 @@ public class TierAndDangerTests {
                 helper.assertTrue(cityLevel >= 10, "a city's guards are well above a villager's level 2: " + cityLevel + " (stats say "
                         + io.github.ranger3462.ddprofessions.character.MobLevels.fromStats(guard) + ": health " + guard.getMaxHealth() + ", attack "
                         + guard.getAttributeValue(net.minecraft.world.entity.ai.attributes.Attributes.ATTACK_DAMAGE) + ", armor " + guard.getArmorValue()
-                        + ", ticks " + guard.tickCount + ")");
+                        + ", ticks " + guard.tickCount + ", at " + guard.blockPosition() + " ticking " + level.isPositionEntityTicking(guard.blockPosition()) + ", test area " + helper.getBounds() + ")");
             }
             helper.assertTrue(RealmLiveRaids.guardCount(10, 5) == 8 && RealmLiveRaids.guardCount(10, 1) == 4 && RealmLiveRaids.guardCount(0, 1) == 2
                     && RealmLiveRaids.guardCount(100, 5) == RealmLiveRaids.MAX_GUARDS, "and more of them turn out: tier + 1 + morale / 5, up to 12");

@@ -235,6 +235,7 @@ public class LiveRaidTests {
     private static Realm frontier(GameTestHelper helper) {
         Realm realm = new Realm();
         BlockPos at = helper.absolutePos(new BlockPos(1, 2, 1));
+        TestArena.loadAround(helper.getLevel(), at, RealmLiveRaids.RING + 8); // raiders come from beyond the test's own area
         RealmNode town = new RealmNode("riverhold", RealmNode.Type.TOWN, RealmNode.KINGDOM, helper.getLevel().dimension(), at);
         realm.add(town);
         realm.setStat(town, "tier", 1);

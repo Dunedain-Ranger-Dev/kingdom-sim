@@ -39,6 +39,34 @@ final class TestArena {
         level.getChunk(chunk.x, chunk.z);
     }
 
+    /**
+     * Keeps every chunk within {@code radius} blocks of a position loaded, with its mobs ticking. A test's own area is
+     * only a few blocks across, so a town's guards (at posts round it) can stand in a chunk next door, where mobs don't
+     * tick unless something keeps it loaded; whether they do depends on where the test lands. Left loaded: the test
+     * server stops when the tests are done.
+     */
+    static void loadAround(ServerLevel level, BlockPos pos, int radius) {
+        ChunkPos from = new ChunkPos(pos.offset(-radius, 0, -radius)), to = new ChunkPos(pos.offset(radius, 0, radius));
+        for (int x = from.x; x <= to.x; x++) {
+            for (int z = from.z; z <= to.z; z++) {
+                level.setChunkForced(x, z, true);
+                level.getChunk(x, z);
+            }
+        }
+    }
+
+    /**
+     * Runs {@code then} once {@code ready} holds, checking every tick: for a step that needs the world to catch up first
+     * (a chunk next to the test's own starting to tick, a mob landing). The test's own timeout still applies.
+     */
+    static void when(GameTestHelper helper, java.util.function.BooleanSupplier ready, Runnable then) {
+        if (ready.getAsBoolean()) {
+            then.run();
+        } else {
+            helper.runAfterDelay(1, () -> when(helper, ready, then));
+        }
+    }
+
     static void unload(ServerLevel level, BlockPos pos) {
         ChunkPos chunk = new ChunkPos(pos);
         level.setChunkForced(chunk.x, chunk.z, false);

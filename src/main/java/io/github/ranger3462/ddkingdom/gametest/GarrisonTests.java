@@ -30,6 +30,7 @@ public class GarrisonTests {
         ServerLevel level = helper.getLevel();
         Realm realm = new Realm();
         BlockPos at = helper.absolutePos(new BlockPos(1, 2, 1));
+        TestArena.loadAround(level, at, 2 * RealmGarrison.POST_RING); // its guards stand and wander beyond the test's own area
         RealmNode town = new RealmNode(id, RealmNode.Type.TOWN, RealmNode.KINGDOM, level.dimension(), at);
         realm.add(town);
         realm.setStat(town, "tier", 1);
@@ -80,11 +81,13 @@ public class GarrisonTests {
 
         Mob fallen = guards.get(0);
         fallen.kill();
-        helper.runAfterDelay(30, () -> {
+        // Once its spot is ticking (it can be in the chunk next to the test's, still loading) and it's landed.
+        helper.runAfterDelay(30, () -> TestArena.when(helper, () -> level.isPositionEntityTicking(wanderer.blockPosition()) && wanderer.onGround(), () -> {
             RealmGarrison.tick(level, realm, node -> true);
             helper.assertTrue(wanderer.getNavigation().isInProgress() || wanderer.blockPosition().closerThan(town.posts().get(1), 3),
                     "a guard off its post heads back: at " + wanderer.blockPosition() + " post " + town.posts().get(1) + " ground " + wanderer.onGround()
-                            + " target " + wanderer.getTarget() + " path " + wanderer.getNavigation().getPath());
+                            + " target " + wanderer.getTarget() + " path " + wanderer.getNavigation().getPath() + " ticking " + level.isPositionEntityTicking(wanderer.blockPosition())
+                            + " test area " + helper.getBounds());
             helper.assertTrue(town.stat("fallen") == 1 && RealmGarrison.guards(town).size() == full - 1, "a fallen guard isn't replaced at once");
             RealmGarrison.tick(level, realm, node -> true);
             helper.assertTrue(RealmGarrison.guards(town).size() == full - 1, "not even a moment later");
@@ -97,7 +100,7 @@ public class GarrisonTests {
             RealmGarrison.tick(level, realm, node -> true);
             helper.assertTrue(RealmGarrison.guards(town).isEmpty(), "a lost town's guards go home");
             helper.succeed();
-        });
+        }));
     }
 
     @GameTest(batch = "realm_aRaidIsFoughtByTheGarrisonWhichStaysAfter", template = ANY_TEMPLATE, timeoutTicks = 200)
