@@ -205,6 +205,9 @@ public final class RealmRaids {
      * attackers ahead sack the town, by the margin; otherwise they're driven off. Returns whether the attackers won.
      */
     public static boolean decide(Realm realm, Realm.Raid raid, int attack, int defense, boolean fought) {
+        if (RealmSimTurns.decided(realm, raid, attack, defense, fought)) {
+            return attack > defense; // the simulator's realm settles its own (docs/design/realm-cutover.md)
+        }
         realm.raids.remove(raid);
         Optional<RealmNode> town = realm.node(raid.town());
         Optional<RealmNode> stronghold = realm.node(raid.stronghold());

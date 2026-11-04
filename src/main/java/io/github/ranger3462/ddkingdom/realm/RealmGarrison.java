@@ -72,10 +72,16 @@ public final class RealmGarrison {
 
     private RealmGarrison() {}
 
-    /** How many guards a town turns out in full: its raid turnout if it's a kingdom town above ruins, else none. */
+    /**
+     * How many guards a town turns out in full: its raid turnout if it's a kingdom town above ruins, else none. By the
+     * simulator's rules, it's what the mirror gives it (its {@code guards}, see RealmSimTurns).
+     */
     public static int fullStrength(RealmNode town) {
         int tier = RealmTiers.tier(town);
-        return town.settlement() && town.kingdoms() && tier > 0 ? RealmLiveRaids.guardCount(town.stat("morale"), tier) : 0;
+        if (!town.settlement() || !town.kingdoms() || tier <= 0) {
+            return 0;
+        }
+        return town.stats().containsKey("guards") ? town.stat("guards") : RealmLiveRaids.guardCount(town.stat("morale"), tier);
     }
 
     /** How many it keeps now: its full strength, less those fallen since dawn. */

@@ -1,0 +1,9 @@
+{
+  "name": "bandits",
+  "mobs": [
+    "minecraft:pillager=60@1-4",
+    "minecraft:vindicator=40@1-4",
+    "minecraft:ravager=10@4"
+  ],
+  "boss_faction": "orcs"
+}

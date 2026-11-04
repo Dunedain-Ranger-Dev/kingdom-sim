@@ -36,6 +36,8 @@ public final class SimRealm {
     public long lastTurnMillis;
     /** Each held attack's dusk: when it's settled (real time), by its id. */
     private final Map<Integer, Long> dusk = new LinkedHashMap<>();
+    /** Held fights being fought in the world now: left for the host to settle (not saved: a restart rolls them). */
+    private final java.util.Set<Integer> live = new java.util.HashSet<>();
     /** What happened, for the realm's log and news, oldest first, until taken. */
     private final List<Event> events = new ArrayList<>();
     /** Which held attacks the host has players for: the attacker's id and its target (set by the host each time; not saved). */
@@ -110,23 +112,39 @@ public final class SimRealm {
         changedHands(owners);
     }
 
-    /** Settles, with the dice, every held fight whose dusk has come by {@code now}. */
+    /** Settles, with the dice, every held fight whose dusk has come by {@code now}, but those being fought in the world. */
     public void settleDue(long now) {
-        List<Integer> due = new ArrayList<>();
-        dusk.forEach((id, at) -> {
-            if (at <= now) {
-                due.add(id);
-            }
-        });
-        for (int id : due) {
-            settle(id, null);
+        for (Game.HeldBattle b : due(now)) {
+            settle(b.id, null);
         }
+    }
+
+    /** The held fights whose dusk has come by {@code now}, not yet being fought in the world. */
+    public List<Game.HeldBattle> due(long now) {
+        List<Game.HeldBattle> due = new ArrayList<>();
+        for (Game.HeldBattle b : game.held) {
+            Long at = dusk.get(b.id);
+            if (at != null && at <= now && !live.contains(b.id)) {
+                due.add(b);
+            }
+        }
+        return due;
+    }
+
+    /** A held fight is being fought in the world: the host settles it ({@link #settle}) when it's over. */
+    public void fightLive(int id) {
+        live.add(id);
+    }
+
+    public boolean isLive(int id) {
+        return live.contains(id);
     }
 
     /** Settles a held fight: with what happened in the world ({@code live}, see Combat.fought), or the dice if null. */
     public void settle(int id, io.github.ranger3462.ddkingdom.sim.Combat.Battle live) {
         Map<String, String> owners = owners();
         dusk.remove(id);
+        this.live.remove(id);
         game.settle(id, live);
         takeLog();
         changedHands(owners);

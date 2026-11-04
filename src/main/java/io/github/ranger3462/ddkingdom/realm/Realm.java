@@ -55,6 +55,9 @@ public final class Realm extends SavedData {
     /** Where each of the simulator's nodes is in the world, by its id. */
     private final Map<String, Place> simPlaces = new LinkedHashMap<>();
 
+    /** Whether the realm's nodes mirror the simulator's (RealmSimTurns.mirror): its raids are the simulator's held fights. Not saved. */
+    boolean mirrored;
+
     /** A place in the world. */
     public record Place(ResourceKey<Level> dimension, BlockPos pos) {}
 

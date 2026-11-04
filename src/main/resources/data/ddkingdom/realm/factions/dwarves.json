@@ -1,0 +1,10 @@
+{
+  "name": "dwarves",
+  "capital": "Karak Varn",
+  "mobs": [
+    "minecraft:vindicator=60@1-4",
+    "minecraft:pillager=30@1-3",
+    "minecraft:iron_golem=20@3-4"
+  ],
+  "boss_faction": "orcs"
+}

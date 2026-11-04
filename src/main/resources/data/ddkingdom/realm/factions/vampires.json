@@ -1,0 +1,9 @@
+{
+  "name": "vampires",
+  "mobs": [
+    "minecraft:witch=50@1-4",
+    "minecraft:phantom=30@1-4",
+    "minecraft:evoker=15@3-4"
+  ],
+  "boss_faction": "undead"
+}
