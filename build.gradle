@@ -179,6 +179,10 @@ dependencies {
         localRuntime dungeonDelving
         localRuntime professions
         localRuntime "curse.maven:puffish-skills-835091:9101377"             // 0.19.2: its tests name Pufferfish's Skills
+        // Apotheosis and its libraries, which Dungeon Delving requires
+        localRuntime "curse.maven:apotheosis-313970:8993983"                 // 1.21.1-8.9.0
+        localRuntime "curse.maven:placebo-283644:9153039"                    // 1.21.1-9.9.4
+        localRuntime "curse.maven:apothic-attributes-898963:9006294"         // 1.21.1-2.11.0
         // Iron's Spells 'n Spellbooks and its libraries
         localRuntime "curse.maven:irons-spells-n-spellbooks-855414:8680204"  // 1.21.1-3.16.3
         localRuntime "curse.maven:irons-lib-1492763:8973642"                 // 1.21.1-2.2.0
