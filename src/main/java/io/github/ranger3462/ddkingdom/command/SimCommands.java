@@ -32,7 +32,8 @@ import net.neoforged.neoforge.event.RegisterCommandsEvent;
  * <ul>
  * <li>{@code /realm sim}: the round, the time to the next, each faction's land, army and stockpiles, and fights held for dusk.</li>
  * <li>{@code /realm sim start [seed]}: starts the realm afresh on the server's map ({@link SimRealm#DEFAULT_MAP}); {@code restart} replaces one already started.</li>
- * <li>{@code /realm sim place <node>}: where a node stands in the world (where you stand). {@code unplaced}: the nodes still to place.</li>
+ * <li>{@code /realm sim place <node>}: where a node stands in the world (where you stand); {@code place all}: every node where the
+ * map's places file puts them (start does this for nodes not yet placed). {@code unplaced}: the nodes still to place.</li>
  * <li>{@code /realm sim info <node>}; {@code set <node> tier|garrison|defense|morale <value>}; {@code owner <node> <faction>|none}.</li>
  * <li>{@code /realm sim stock <faction> food|gold|res <amount>}: a faction's stockpile.</li>
  * <li>{@code /realm sim turn [count]}: play rounds now.</li>
@@ -58,7 +59,7 @@ public final class SimCommands {
                         .then(Commands.literal("restart").executes(context -> start(context, true, (int) (System.currentTimeMillis() & 0x7FFFFFFF)))
                                 .then(Commands.argument("seed", IntegerArgumentType.integer())
                                         .executes(context -> start(context, true, IntegerArgumentType.getInteger(context, "seed")))))
-                        .then(Commands.literal("place").then(node().executes(SimCommands::place)))
+                        .then(Commands.literal("place").then(Commands.literal("all").executes(SimCommands::placeAll)).then(node().executes(SimCommands::place)))
                         .then(Commands.literal("unplaced").executes(SimCommands::unplaced))
                         .then(Commands.literal("info").then(node().executes(SimCommands::info)))
                         .then(Commands.literal("set").then(node().then(Commands.argument("stat", StringArgumentType.word())
@@ -156,6 +157,20 @@ public final class SimCommands {
             Feedback.detail(context.getSource(), "It plays only once realmEngine is sim, in config/ddkingdom-common.toml.");
         }
         return 1;
+    }
+
+    private static int placeAll(CommandContext<CommandSourceStack> context) {
+        Optional<SimRealm> started = started(context);
+        if (started.isEmpty()) {
+            return 0;
+        }
+        int placed = realm(context).placeSimFromFile();
+        if (placed == 0) {
+            Feedback.fail(context.getSource(), started.get().mapId + " has no places file: place its nodes one by one with /realm sim place <node>.");
+            return 0;
+        }
+        Feedback.tell(context.getSource(), "Placed " + placed + " nodes where " + started.get().mapId + "'s places file puts them (over any placed by hand).");
+        return placed;
     }
 
     private static int place(CommandContext<CommandSourceStack> context) {

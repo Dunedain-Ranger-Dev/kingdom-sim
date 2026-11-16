@@ -97,7 +97,10 @@ config switch (`realmEngine = legacy | sim`), so the server never has a broken r
 ## Decided (2026-11-03)
 
 1. **The map:** `large_ruins`. It maps directly onto the world already built; each node is tied to its place
-   there (`/realm node place <id>`, or matched to a node already placed with the same id).
+   there. `data/ddkingdom/realm/sim/places/large_ruins.json` holds every node's block position, from the WorldPainter
+   build kit's node list (the world is 12,000 x 8,000 blocks centred on 0,0; the kit calls Stonebeard Granary just
+   Stonebeard). `/realm sim start` places every node from it; `/realm sim place <node>` moves one by hand, and
+   `/realm sim place all` puts them all back.
 2. **Pace:** a round **every hour** (`realmTurnMinutes` 60), and the game **never ends**: no last round, no winner.
    Dusk, when a held fight is settled, is half a turn after it's declared (30 minutes).
 3. **Champions:** kept as a **Minecraft-side event**. When a faction is down to its capital, the mod rallies it

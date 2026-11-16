@@ -393,11 +393,12 @@ public final class Realm extends SavedData {
     }
 
     /**
-     * Starts the realm afresh by the simulator's rules. A simulator node with the same id as one of this realm's
-     * nodes is placed where that one is.
+     * Starts the realm afresh by the simulator's rules. Nodes already placed stay where they are; the rest are placed
+     * by the map's places file ({@link SimPlaces}), or where an old node with the same id is.
      */
     public void startSim(SimRealm fresh) {
         sim = fresh;
+        SimPlaces.named(fresh.mapId).forEach(simPlaces::putIfAbsent);
         for (io.github.ranger3462.ddkingdom.sim.Node n : fresh.game.nodes) {
             RealmNode same = nodes.get(n.id);
             if (same != null && !simPlaces.containsKey(n.id)) {
@@ -410,6 +411,17 @@ public final class Realm extends SavedData {
     /** Where a simulator node is in the world, if it's been placed. */
     public Optional<Place> simPlace(String id) {
         return Optional.ofNullable(simPlaces.get(id));
+    }
+
+    /** Places every node by the map's places file again, over any placed by hand. Returns how many. */
+    public int placeSimFromFile() {
+        if (sim == null) {
+            return 0;
+        }
+        Map<String, Place> places = SimPlaces.named(sim.mapId);
+        simPlaces.putAll(places);
+        setDirty();
+        return places.size();
     }
 
     public void setSimPlace(String id, ResourceKey<Level> dimension, BlockPos pos) {

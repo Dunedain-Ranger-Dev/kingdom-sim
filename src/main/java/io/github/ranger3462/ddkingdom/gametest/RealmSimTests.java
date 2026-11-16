@@ -9,6 +9,8 @@ import io.github.ranger3462.ddkingdom.realm.RealmSimTurns;
 import io.github.ranger3462.ddkingdom.realm.SimRealm;
 import io.github.ranger3462.ddkingdom.sim.Game;
 import io.github.ranger3462.ddkingdom.sim.Node;
+import java.util.Optional;
+
 import net.minecraft.core.BlockPos;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
@@ -26,20 +28,26 @@ public class RealmSimTests {
     @GameTest(template = ANY_TEMPLATE)
     public static void theSimulatorsRealmIsSavedWithTheWorld(GameTestHelper helper) {
         Realm realm = new Realm();
-        // An old node with a simulator node's id: the new realm places it where the old one stands.
+        // An old node with a simulator node's id: the places file puts it where the world was built for it, not there.
         realm.add(new RealmNode("hb_town", RealmNode.Type.TOWN, RealmNode.KINGDOM, Level.OVERWORLD, new BlockPos(100, 64, -40)));
         SimRealm sim = SimRealm.start(SimRealm.DEFAULT_MAP, 7, START);
         realm.startSim(sim);
+        Realm.Place built = io.github.ranger3462.ddkingdom.realm.SimPlaces.named(SimRealm.DEFAULT_MAP).get("hb_town");
+        helper.assertTrue(sim.game.nodes.stream().allMatch(n -> realm.simPlace(n.id).isPresent()), "every node is placed from the places file");
+        helper.assertTrue(realm.simPlace("hb_town").map(p -> p.equals(built)).orElse(false), "where the world was built for it");
+        helper.assertTrue(realm.simPlace("hb_cap").map(p -> p.pos().equals(new BlockPos(-210, 76, 2544)) && p.dimension().equals(Level.OVERWORLD)).orElse(false),
+                "Landfall stands where the build kit put it");
         realm.setSimPlace("ko_cap", Level.OVERWORLD, new BlockPos(-300, 70, 25));
         sim.catchUp(START + HOUR * 5, HOUR, 24);
-        helper.assertTrue(realm.simPlace("hb_town").map(p -> p.pos().equals(new BlockPos(100, 64, -40))).orElse(false), "placed where the old node stands");
 
         Realm loaded = realm.reloaded(helper.getLevel().registryAccess());
         helper.assertTrue(loaded.sim().isPresent(), "the simulator's game comes back");
         helper.assertTrue(loaded.sim().get().save().equals(sim.save()), "exactly as it was");
         helper.assertTrue(loaded.simPlace("ko_cap").map(p -> p.pos().equals(new BlockPos(-300, 70, 25)) && p.dimension().equals(Level.OVERWORLD)).orElse(false),
-                "and where its nodes stand");
-        helper.assertTrue(loaded.simPlace("hb_town").isPresent() && loaded.simPlace("go_cap").isEmpty(), "unplaced nodes stay unplaced");
+                "and where its nodes stand, a node placed by hand too");
+        helper.assertTrue(loaded.placeSimFromFile() == sim.game.nodes.size()
+                && loaded.simPlace("ko_cap").equals(Optional.of(io.github.ranger3462.ddkingdom.realm.SimPlaces.named(SimRealm.DEFAULT_MAP).get("ko_cap"))),
+                "place all puts it back where the file says");
         helper.assertTrue(new Realm().reloaded(helper.getLevel().registryAccess()).sim().isEmpty(), "a realm never started has none");
         helper.succeed();
     }
