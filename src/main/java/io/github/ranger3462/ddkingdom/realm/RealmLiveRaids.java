@@ -247,7 +247,9 @@ public final class RealmLiveRaids {
             }
         }
         if (live.wave == WAVES) {
-            realm.node(live.raid.stronghold()).filter(node -> node.type == RealmNode.Type.CAPITAL).ifPresent(capital -> {
+            // A champion leads a raid from its capital; by the simulator's rules only a pushed-back nation's, as its other attacks start there too.
+            realm.node(live.raid.stronghold()).filter(node -> node.type == RealmNode.Type.CAPITAL && (!realm.mirrored || RealmCapitals.pushedBack(realm, node.owner())))
+                    .ifPresent(capital -> {
                 float angle = random.nextFloat() * Mth.TWO_PI;
                 BlockPos at = surface(live.level, live.center.offset((int) (Mth.cos(angle) * RING), 0, (int) (Mth.sin(angle) * RING)), 2, random);
                 Mob champion = RealmCapitals.spawnChampion(live.level, at, capital);

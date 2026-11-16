@@ -32,6 +32,10 @@ import net.minecraft.server.level.ServerLevel;
  * An attack on the player kingdom waits for dusk if a player is within {@link RealmLiveRaids#PRESENCE} blocks of the
  * place it's on, and shows as a raid declared on it. At dusk, if a player is there, it's fought live, and the fight
  * settles the simulator's battle ({@link #decided}); if not, it's rolled.
+ * <p>
+ * Champions stay a world event on top of the simulator: a faction holding nothing but its capital is pushed back, and
+ * rallies there ({@link RealmCapitals#rally}), sending its champion against the nearest kingdom town every few rounds.
+ * Its win adds troops at the capital, and its death or defeat costs them; who holds what is left to the simulator.
  */
 public final class RealmSimTurns {
     /** The realm faction each of the simulator's is, where the ids differ (the rest keep theirs). */
@@ -62,6 +66,63 @@ public final class RealmSimTurns {
             }
             realm.turn = sim.game.round - 1;
             mirror(realm, sim);
+            for (int round = before; round < sim.game.round; round++) {
+                RealmCapitals.rally(realm, now); // pushed-back capitals rally, and send their champions
+            }
+        }
+        championsAtDusk(server, realm, now);
+    }
+
+    // ---- Champions ----
+
+    /**
+     * Whether a raid is a champion's rally: from a capital, and not one of the simulator's held fights. Champions are
+     * a world event on top of the simulator (docs/design/realm-cutover.md): they don't change who holds what, only
+     * the troops at their capital.
+     */
+    static boolean isRally(Realm realm, SimRealm sim, Realm.Raid raid) {
+        return realm.node(raid.stronghold()).map(node -> node.type == RealmNode.Type.CAPITAL).orElse(false)
+                && sim.game.held.stream().noneMatch(b -> b.from.equals(raid.stronghold()) && b.target.equals(raid.town()));
+    }
+
+    /** At dusk, a champion's rally is fought where a player is at its target, and rolled where not. */
+    private static void championsAtDusk(MinecraftServer server, Realm realm, long now) {
+        SimRealm sim = realm.sim().orElseThrow();
+        for (Realm.Raid raid : List.copyOf(realm.raids)) {
+            if (raid.resolveAt() > now || RealmLiveRaids.isLive(raid) || !isRally(realm, sim, raid)) {
+                continue;
+            }
+            Optional<RealmNode> town = realm.node(raid.town());
+            ServerLevel level = town.isPresent() ? server.getLevel(town.get().dimension()) : null;
+            if (level != null && level.isLoaded(town.get().pos()) && RealmLiveRaids.playerAt(level, town.get().pos(), RealmLiveRaids.PRESENCE)) {
+                RealmLiveRaids.start(realm, raid, level);
+            } else {
+                RealmRaids.resolve(realm, raid, 1 + server.overworld().getRandom().nextInt(20), 1 + server.overworld().getRandom().nextInt(20));
+            }
+        }
+    }
+
+    /**
+     * A champion's rally decided: a win adds {@link RealmCapitals#VICTORY_MILITARY} troops at its capital; a rolled
+     * loss costs it a third of them, as a champion slain in a fight does (RealmCapitals.onDeath). Its town is spared:
+     * who holds what is the simulator's to decide.
+     */
+    private static void rallyDecided(Realm realm, Realm.Raid raid, boolean won, boolean fought) {
+        Optional<RealmNode> capital = realm.node(raid.stronghold());
+        String town = realm.node(raid.town()).map(RealmNode::name).orElse(raid.town());
+        if (capital.isEmpty()) {
+            return;
+        }
+        String who = "The champion of the " + RealmFactions.get(capital.get().owner()).displayName();
+        if (won) {
+            RealmCapitals.championRaidDecided(realm, capital.get(), true);
+            realm.news(Realm.LogKind.BATTLE, raid.nation(), who + " broke " + town + "'s defenders" + (fought ? " in a pitched fight." : "."));
+        } else if (!fought) {
+            int lost = capital.get().stat("military") / 3;
+            realm.addStat(capital.get(), "military", -lost);
+            realm.news(Realm.LogKind.BATTLE, raid.nation(), who + " was driven off from " + town + ": " + capital.get().name() + " loses " + lost + " troops.");
+        } else {
+            realm.news(Realm.LogKind.BATTLE, raid.nation(), town + " held against " + who.replaceFirst("^The", "the") + ".");
         }
     }
 
@@ -122,7 +183,14 @@ public final class RealmSimTurns {
             return false;
         }
         SimRealm sim = realm.sim().get();
+        if (isRally(realm, sim, raid)) {
+            realm.raids.remove(raid);
+            rallyDecided(realm, raid, attack > defense, fought);
+            realm.setDirty();
+            return true;
+        }
         realm.raids.remove(raid);
+        writeBack(realm, sim); // troops changed during the fight (a champion slain) before the mirror rewrites them
         Optional<Game.HeldBattle> held = sim.game.held.stream().filter(b -> b.from.equals(raid.stronghold()) && b.target.equals(raid.town())).findFirst();
         if (held.isPresent()) {
             Game.HeldBattle b = held.get();
@@ -253,7 +321,7 @@ public final class RealmSimTurns {
         }
         realm.kingdom.put("army", game.army(SimRealm.PLAYERS));
         // Raids: a held fight is a raid declared on its target, until it's settled.
-        realm.raids.removeIf(r -> game.held.stream().noneMatch(b -> b.from.equals(r.stronghold()) && b.target.equals(r.town())));
+        realm.raids.removeIf(r -> !isRally(realm, sim, r) && game.held.stream().noneMatch(b -> b.from.equals(r.stronghold()) && b.target.equals(r.town())));
         for (Game.HeldBattle b : game.held) {
             Long dusk = sim.dusk(b.id);
             if (dusk != null && realm.node(b.target).isPresent() && realm.node(b.from).isPresent()

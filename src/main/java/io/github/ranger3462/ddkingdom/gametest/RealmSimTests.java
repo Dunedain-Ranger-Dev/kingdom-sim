@@ -52,6 +52,56 @@ public class RealmSimTests {
         helper.succeed();
     }
 
+    @GameTest(template = ANY_TEMPLATE)
+    public static void aPushedBackNationsChampionRaidsForTroops(GameTestHelper helper) {
+        SimRealm sim = SimRealm.start(SimRealm.DEFAULT_MAP, 5, START);
+        Realm realm = placedEverywhere(sim);
+        // The goblins are down to their capital; the Hearthbound hold a town.
+        sim.game.nodes.stream().filter(n -> "go".equals(n.owner) && n.type != io.github.ranger3462.ddkingdom.sim.NodeType.CAPITAL).forEach(n -> n.owner = null);
+        Node town = sim.game.node("hb_town");
+        town.owner = "hb";
+        town.tier = Math.max(1, town.tier);
+        sim.game.node("or_town").owner = "or";
+        RealmSimTurns.mirror(realm, sim);
+        helper.assertTrue(io.github.ranger3462.ddkingdom.realm.RealmCapitals.pushedBack(realm, "goblins"), "a nation with only its capital is pushed back");
+        helper.assertTrue(!io.github.ranger3462.ddkingdom.realm.RealmCapitals.pushedBack(realm, "orcs"), "one holding a town isn't");
+
+        // It rallies, and after a few rounds its champion marches on the nearest kingdom town.
+        Realm.Raid raid = null;
+        for (int round = 0; round < io.github.ranger3462.ddkingdom.realm.RealmCapitals.RALLY_TURNS && raid == null; round++) {
+            io.github.ranger3462.ddkingdom.realm.RealmCapitals.rally(realm, START);
+            raid = realm.raids().stream().filter(r -> r.stronghold().equals("go_cap")).findFirst().orElse(null);
+        }
+        helper.assertTrue(raid != null, "the champion marches");
+        RealmNode target = realm.node(raid.town()).orElseThrow();
+        helper.assertTrue(target.type == RealmNode.Type.TOWN && target.kingdoms(), "on a kingdom town: " + target.id);
+        RealmSimTurns.mirror(realm, sim);
+        helper.assertTrue(realm.raids().contains(raid), "the mirror keeps a champion's march");
+
+        // A win adds troops at the capital, and they go into the simulator; the town stays the kingdom's.
+        Node capital = sim.game.node("go_cap");
+        int before = capital.garrison;
+        RealmRaids.decide(realm, raid, 50, 1, false);
+        RealmSimTurns.writeBack(realm, sim);
+        helper.assertTrue(capital.garrison == before + io.github.ranger3462.ddkingdom.realm.RealmCapitals.VICTORY_MILITARY, "a win swells the capital: " + capital.garrison);
+        helper.assertTrue("hb".equals(sim.game.node(target.id).owner), "but takes nothing: the simulator decides who holds what");
+        helper.assertTrue(realm.raids().stream().noneMatch(r -> r.stronghold().equals("go_cap")), "the march is over");
+
+        // A rolled loss costs it a third of its troops.
+        RealmSimTurns.mirror(realm, sim);
+        Realm.Raid next = null;
+        for (int round = 0; round < io.github.ranger3462.ddkingdom.realm.RealmCapitals.RALLY_TURNS && next == null; round++) {
+            io.github.ranger3462.ddkingdom.realm.RealmCapitals.rally(realm, START);
+            next = realm.raids().stream().filter(r -> r.stronghold().equals("go_cap")).findFirst().orElse(null);
+        }
+        helper.assertTrue(next != null, "it marches again");
+        before = capital.garrison;
+        RealmRaids.decide(realm, next, 1, 50, false);
+        RealmSimTurns.writeBack(realm, sim);
+        helper.assertTrue(capital.garrison == before - before / 3, "a loss costs a third: " + before + " to " + capital.garrison);
+        helper.succeed();
+    }
+
     /** A realm started by the simulator's rules with every node placed, in a row. */
     private static Realm placedEverywhere(SimRealm sim) {
         Realm realm = new Realm();

@@ -59,9 +59,18 @@ public final class RealmCapitals {
         return realm.nodes().stream().filter(node -> node.type == RealmNode.Type.CAPITAL && nation.equals(node.owner())).findFirst();
     }
 
-    /** Whether a monster nation has lost every stronghold and fights from its capital. */
+    /**
+     * Whether a monster nation has lost every stronghold and fights from its capital. By the simulator's rules
+     * (RealmSimTurns), when it holds nothing but its capital.
+     */
     public static boolean pushedBack(Realm realm, String nation) {
-        return !RealmNode.KINGDOM.equals(nation) && capital(realm, nation).isPresent() && RealmTurns.strongholds(realm, nation).isEmpty();
+        if (RealmNode.KINGDOM.equals(nation) || capital(realm, nation).isEmpty()) {
+            return false;
+        }
+        if (realm.mirrored) {
+            return realm.nodes().stream().noneMatch(node -> nation.equals(node.owner()) && node.type != RealmNode.Type.CAPITAL);
+        }
+        return RealmTurns.strongholds(realm, nation).isEmpty();
     }
 
     /** Whether the kingdom has a capital, and so a champion to lead its marches. */
@@ -88,6 +97,9 @@ public final class RealmCapitals {
 
     /** Where a capital's champion marches: the nearest stronghold to retake, else the nearest town. */
     public static Optional<RealmNode> championTarget(Realm realm, RealmNode capital) {
+        if (realm.mirrored) {
+            return nearestTown(realm, capital); // the simulator decides who holds what; a champion only raids
+        }
         Optional<RealmNode> stronghold = nearestLostStronghold(realm, capital);
         return stronghold.isPresent() ? stronghold : nearestTown(realm, capital);
     }
