@@ -35,19 +35,14 @@ public class GuardTests {
     @GameTest(batch = "realm_townsSendSwordsmenCrossbowmenAndBattlemages", template = ANY_TEMPLATE, timeoutTicks = 200)
     public static void townsSendSwordsmenCrossbowmenAndBattlemages(GameTestHelper helper) {
         ServerLevel level = helper.getLevel();
-        Realm realm = new Realm();
-        BlockPos at = helper.absolutePos(new BlockPos(1, 2, 1));
-        RealmNode town = new RealmNode("riverhold", RealmNode.Type.TOWN, RealmNode.KINGDOM, level.dimension(), at);
-        realm.add(town);
-        realm.add(new RealmNode("warren", RealmNode.Type.STRONGHOLD, DungeonFactions.GOBLINS, level.dimension(), at.offset(200, 0, 0)));
-        realm.link("riverhold", "warren");
-        realm.setStat(town, "tier", 3);
+        SimFrontier frontier = SimFrontier.of(helper, 3);
+        frontier.sim.game.node(SimFrontier.TOWN).garrison = 6;
         try {
-            Realm.Raid raid = RealmRaids.declare(realm, "riverhold", 0L).orElseThrow();
-            RealmLiveRaids.LiveRaid live = RealmLiveRaids.start(realm, raid, level);
+            Realm.Raid raid = frontier.raid();
+            RealmLiveRaids.LiveRaid live = frontier.fight(raid, level);
             List<Mob> guards = RealmLiveRaids.guards(live);
-            int[] split = RealmLiveRaids.roles(RealmLiveRaids.guardCount(10, 3), 3);
-            helper.assertTrue(guards.size() == 6 && guards.stream().allMatch(guard -> guard instanceof RealmGuard), "a tier 3 town sends 6 guards: " + guards.size());
+            int[] split = RealmLiveRaids.roles(6, 3);
+            helper.assertTrue(guards.size() == 6 && guards.stream().allMatch(guard -> guard instanceof RealmGuard), "a tier 3 town with 6 troops sends 6 guards: " + guards.size());
             long crossbowmen = guards.stream().filter(guard -> guard instanceof TownGuard townGuard && townGuard.isCrossbowman()).count();
             helper.assertTrue(crossbowmen == split[1] && crossbowmen >= 1, "some with crossbows: " + crossbowmen);
             helper.assertTrue(guards.stream().filter(guard -> guard instanceof TownGuard townGuard && townGuard.isCrossbowman())

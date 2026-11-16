@@ -66,11 +66,13 @@ config switch (`realmEngine = legacy | sim`), so the server never has a broken r
      settled at once by the dice.
    - `/realm node set` and the other admin commands change the simulator's numbers.
    - Test: with no players, the realm's game matches `SimMain --fingerprint` for the same seed and map.
-3. **Rewire the Minecraft side, then remove the old engine**. In progress: the world mirrors the simulator's nodes
+3. **Rewire the Minecraft side, then remove the old engine**. Done 2026-11-16: the world mirrors the simulator's nodes
    (`RealmSimTurns.mirror`), and live raids settle held fights. Champion raids: a faction holding only its capital
    rallies and sends its champion against the nearest Hearthbound town; a win adds troops at the capital, a loss or a
-   slain champion costs them, and it takes nothing. Still to do: switching `realmEngine` to `sim` and removing the old
-   engine
+   slain champion costs them, and it takes nothing. The simulator is the only engine (no `realmEngine`), a round
+   every `realmRoundMinutes` (60). The old turns, raid outcomes, town growth and economy are gone, with their commands
+   (`/realm turn`, `clock`, `purse`, `raid`, `link`, `node ...`; `/realm sim raid` replaces `/realm raid`) and tests.
+   The menu shows the simulator's food, gold and upkeep; a proper redesign is KING-6
    - The realm menu (`RealmMap`, `RealmScreen`) and the map icons show tiers, garrisons, stockpiles and owners.
    - Guards: a town's garrison is its guard count (capped, as now). Live raid waves are sized from the attacking
      troops; the fight's survivors go back to the simulator.

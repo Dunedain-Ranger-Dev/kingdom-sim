@@ -1178,20 +1178,37 @@ public final class Game {
 
     /** Holds an attack for the host if {@link #holdBattle} says so: its troops leave, and it waits to be settled. */
     private boolean hold(String kid, Attack at, Action.Type kind, String resource) {
-        Node from = at.from(), target = at.target();
-        if (holdBattle == null || !holdBattle.test(kid, target)) {
+        if (holdBattle == null || !holdBattle.test(kid, at.target())) {
             return false;
         }
+        holdNow(kid, at, kind, resource);
+        return true;
+    }
+
+    /**
+     * Declares an attack and holds it for the host, outside any turn: an operator's raid, or a test's. It's checked as an
+     * AI's attack would be (its node, troops and target), its troops leave, and it waits to be settled ({@link #settle}).
+     */
+    public HeldBattle declare(String kid, Action a) {
+        if (!a.type().attack()) {
+            throw new RuleException("Only an attack can be held.");
+        }
+        return holdNow(kid, attackChecks(kid, a, a.type()), a.type(), a.type() == Action.Type.RAID ? a.resource() : null);
+    }
+
+    private HeldBattle holdNow(String kid, Attack at, Action.Type kind, String resource) {
+        Node from = at.from(), target = at.target();
         watchtowerWarning(target);
         from.garrison -= at.troops();
         hitMorale(target, rules.morale.attacked);
         target.attackedRound = round;
-        held.add(new HeldBattle(nextHeld++, kind, kid, from.id, target.id, resource, at.troops(), round));
+        HeldBattle battle = new HeldBattle(nextHeld++, kind, kid, from.id, target.id, resource, at.troops(), round);
+        held.add(battle);
         if (!quiet) {
             emit(kid, "held", (kind == Action.Type.RAID ? "Raid (" + resource + ")" : kind == Action.Type.HEROIC ? "Heroic conquest" : "Capture")
                     + ": " + at.troops() + " from " + from.name + " march on " + target.name + " [" + kname(target.owner) + "]; the fight is still to come.");
         }
-        return true;
+        return battle;
     }
 
     /** Settles a held attack with the dice. */

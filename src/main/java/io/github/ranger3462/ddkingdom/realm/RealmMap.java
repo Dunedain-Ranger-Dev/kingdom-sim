@@ -157,16 +157,16 @@ public final class RealmMap {
         return tag;
     }
 
-    /** A faction's food and trade, what comes in and goes out a turn, and how much its trade speeds it up. */
+    /** A faction's food and gold, what comes in a round, and what its troops cost (by the simulator's rules). */
     private static CompoundTag purse(Realm realm, String faction) {
         CompoundTag purse = new CompoundTag();
         RealmEconomy.Income income = RealmEconomy.income(realm, faction);
         purse.putInt("food", RealmEconomy.food(realm, faction));
-        purse.putInt("trade", RealmEconomy.trade(realm, faction));
+        purse.putInt("gold", RealmEconomy.trade(realm, faction));
         purse.putInt("foodIn", income.food());
-        purse.putInt("tradeIn", income.trade());
-        purse.putInt("upkeep", income.upkeep());
-        purse.putInt("factor", (int) Math.round(RealmEconomy.factor(realm, faction) * 100));
+        purse.putInt("goldIn", income.gold());
+        purse.putInt("upkeepFood", income.upkeepFood());
+        purse.putInt("upkeepGold", income.upkeepGold());
         return purse;
     }
 
@@ -192,17 +192,13 @@ public final class RealmMap {
         }
         int own = RealmRaids.ownDefense(node);
         int defense = RealmRaids.defense(realm, node);
-        int mines = RealmEconomy.mineDefense(realm, node);
         if (node.type == RealmNode.Type.STRONGHOLD || node.type == RealmNode.Type.CAPITAL || node.stat("military") > 0) {
             facts.add(new Fact("Troops", String.valueOf(node.stat("military")),
                     node.type == RealmNode.Type.CAPITAL && node.monsters() ? "its garrison: half adds to its defense" : node.monsters() ? "what it raids with" : "its garrison"));
         }
         List<String> from = new ArrayList<>();
-        if (defense - own - mines > 0) {
-            from.add((defense - own - mines) + " from the kingdom's army");
-        }
-        if (mines > 0) {
-            from.add(mines + " from its mines");
+        if (defense - own > 0) {
+            from.add((defense - own) + " from its troops");
         }
         if (node.type == RealmNode.Type.CAPITAL) {
             facts.add(new Fact("Defense", String.valueOf(defense), "doubled: a capital's defenders fight twice as hard"));

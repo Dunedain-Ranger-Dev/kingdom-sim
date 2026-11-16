@@ -38,17 +38,17 @@ public final class RealmMapClient {
     public record Nation(String id, int military, int strongholds, int towns, boolean pushedBack, String name, String leader, String champion,
             String capital, String about, boolean marching, Purse purse) {}
 
-    /** A faction's food and trade, a turn's income and upkeep, and its wealth factor (in hundredths). */
-    public record Purse(int food, int trade, int foodIn, int tradeIn, int upkeep, int factor) {
+    /** A faction's food and gold, a round's income, and what its troops cost. */
+    public record Purse(int food, int gold, int foodIn, int goldIn, int upkeepFood, int upkeepGold) {
         static Purse of(CompoundTag tag) {
-            return new Purse(tag.getInt("food"), tag.getInt("trade"), tag.getInt("foodIn"), tag.getInt("tradeIn"), tag.getInt("upkeep"),
-                    tag.contains("factor") ? tag.getInt("factor") : 100);
+            return new Purse(tag.getInt("food"), tag.getInt("gold"), tag.getInt("foodIn"), tag.getInt("goldIn"), tag.getInt("upkeepFood"),
+                    tag.getInt("upkeepGold"));
         }
 
-        /** "Food 12 (+4, troops eat 1)    Trade 20 (+3)    Grows x1.4". */
+        /** "Food 120 (+30, troops eat 6)    Gold 900 (+300, troops cost 600)". */
         public String line() {
-            return "Food " + food + " (+" + foodIn + (upkeep > 0 ? ", troops eat " + upkeep : "") + ")    Trade " + trade + " (+" + tradeIn
-                    + ")    Grows x" + String.format(java.util.Locale.ROOT, "%.1f", factor / 100.0);
+            return "Food " + food + " (+" + foodIn + (upkeepFood > 0 ? ", troops eat " + upkeepFood : "") + ")    Gold " + gold + " (+" + goldIn
+                    + (upkeepGold > 0 ? ", troops cost " + upkeepGold : "") + ")";
         }
     }
 

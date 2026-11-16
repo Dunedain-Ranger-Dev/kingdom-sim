@@ -59,23 +59,12 @@ public final class RealmCapitals {
         return realm.nodes().stream().filter(node -> node.type == RealmNode.Type.CAPITAL && nation.equals(node.owner())).findFirst();
     }
 
-    /**
-     * Whether a monster nation has lost every stronghold and fights from its capital. By the simulator's rules
-     * (RealmSimTurns), when it holds nothing but its capital.
-     */
+    /** Whether a monster nation has lost everything but its capital, and fights from there. */
     public static boolean pushedBack(Realm realm, String nation) {
         if (RealmNode.KINGDOM.equals(nation) || capital(realm, nation).isEmpty()) {
             return false;
         }
-        if (realm.mirrored) {
-            return realm.nodes().stream().noneMatch(node -> nation.equals(node.owner()) && node.type != RealmNode.Type.CAPITAL);
-        }
-        return RealmTurns.strongholds(realm, nation).isEmpty();
-    }
-
-    /** Whether the kingdom has a capital, and so a champion to lead its marches. */
-    public static boolean kingdomChampion(Realm realm) {
-        return capital(realm, RealmNode.KINGDOM).isPresent();
+        return realm.nodes().stream().noneMatch(node -> nation.equals(node.owner()) && node.type != RealmNode.Type.CAPITAL);
     }
 
     /** A capital's champion tier: 1, plus 1 per 20 military, up to 4. */
@@ -89,19 +78,9 @@ public final class RealmCapitals {
                 .min(Comparator.comparingDouble(node -> node.pos().distSqr(capital.pos())));
     }
 
-    /** The stronghold nearest a capital, in its dimension, that its nation could retake. */
-    public static Optional<RealmNode> nearestLostStronghold(Realm realm, RealmNode capital) {
-        return realm.nodes().stream().filter(node -> node.type == RealmNode.Type.STRONGHOLD && RealmRaids.capturable(node, capital.owner())
-                && node.dimension().equals(capital.dimension())).min(Comparator.comparingDouble(node -> node.pos().distSqr(capital.pos())));
-    }
-
-    /** Where a capital's champion marches: the nearest stronghold to retake, else the nearest town. */
+    /** Where a capital's champion marches: the nearest kingdom town. */
     public static Optional<RealmNode> championTarget(Realm realm, RealmNode capital) {
-        if (realm.mirrored) {
-            return nearestTown(realm, capital); // the simulator decides who holds what; a champion only raids
-        }
-        Optional<RealmNode> stronghold = nearestLostStronghold(realm, capital);
-        return stronghold.isPresent() ? stronghold : nearestTown(realm, capital);
+        return nearestTown(realm, capital); // the simulator decides who holds what; a champion only raids
     }
 
     /** Each turn: pushed-back capitals rally, and every {@link #RALLY_TURNS} send their champion. Returns how many marched. */
@@ -120,7 +99,7 @@ public final class RealmCapitals {
             }
             realm.setStat(capital, "rally", 0);
             realm.raids.add(new Realm.Raid(nation, capital.id, target.get().id, realm.turn, time + RealmTurns.turnMillis() / 2));
-            String goal = RealmRaids.capturable(target.get(), capital.owner()) ? "marches to retake " + target.get().name() : "marches on " + target.get().name();
+            String goal = "marches on " + target.get().name();
             realm.news(Realm.LogKind.MARCH, nation, "The " + nation + " rally at " + capital.name() + ": their champion " + goal + " at dusk!");
             marched++;
         }

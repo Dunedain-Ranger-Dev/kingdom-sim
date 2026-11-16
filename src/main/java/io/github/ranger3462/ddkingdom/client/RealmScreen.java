@@ -581,7 +581,7 @@ public class RealmScreen extends Screen {
         int x = x0 + 6, w = PANEL_WIDTH - 12;
         int[] y = { TOP + 6 };
         text(graphics, "The Kingdom", x, y, GOLD);
-        text(graphics, "Army " + data.kingdom().getOrDefault("army", 0) + "   Food " + data.kingdomPurse().food() + "   Trade " + data.kingdomPurse().trade(), x, y, 0xFFFFFF);
+        text(graphics, "Army " + data.kingdom().getOrDefault("army", 0) + "   Food " + data.kingdomPurse().food() + "   Gold " + data.kingdomPurse().gold(), x, y, 0xFFFFFF);
         Collection<RealmMapClient.Node> nodes = data.nodes().values();
         long towns = nodes.stream().filter(node -> "town".equals(node.type())).count();
         long held = nodes.stream().filter(node -> "town".equals(node.type()) && node.kingdoms()).count();

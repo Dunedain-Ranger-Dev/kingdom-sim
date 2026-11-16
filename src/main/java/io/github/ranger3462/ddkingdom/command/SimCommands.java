@@ -36,9 +36,10 @@ import net.neoforged.neoforge.event.RegisterCommandsEvent;
  * map's places file puts them (start does this for nodes not yet placed). {@code unplaced}: the nodes still to place.</li>
  * <li>{@code /realm sim info <node>}; {@code set <node> tier|garrison|defense|morale <value>}; {@code owner <node> <faction>|none}.</li>
  * <li>{@code /realm sim stock <faction> food|gold|res <amount>}: a faction's stockpile.</li>
+ * <li>{@code /realm sim raid <node>}: its strongest neighbour of another faction attacks it, in 10 seconds: fought if you're
+ * there, rolled if not (a capital is raided, anything else attacked to take it).</li>
  * <li>{@code /realm sim turn [count]}: play rounds now.</li>
  * </ul>
- * The realm plays these rounds only while {@code realmEngine} is {@code sim}.
  */
 @EventBusSubscriber(modid = KingdomSim.MODID)
 public final class SimCommands {
@@ -73,6 +74,7 @@ public final class SimCommands {
                                 .then(Commands.argument("what", StringArgumentType.word())
                                         .suggests((context, builder) -> SharedSuggestionProvider.suggest(List.of("food", "gold", "res"), builder))
                                         .then(Commands.argument("amount", IntegerArgumentType.integer(0, 1_000_000)).executes(SimCommands::stock)))))
+                        .then(Commands.literal("raid").then(node().executes(SimCommands::raid)))
                         .then(Commands.literal("turn").executes(context -> turn(context, 1))
                                 .then(Commands.argument("count", IntegerArgumentType.integer(1, 100))
                                         .executes(context -> turn(context, IntegerArgumentType.getInteger(context, "count")))))));
@@ -117,8 +119,7 @@ public final class SimCommands {
         SimRealm sim = started.get();
         Game game = sim.game;
         long seconds = sim.untilNext(System.currentTimeMillis(), RealmTurns.turnMillis()) / 1000;
-        Feedback.tell(context.getSource(), "Round " + game.round + " on " + sim.mapId + ". The next in " + seconds / 60 + ":" + String.format("%02d", seconds % 60)
-                + (KingdomConfig.simEngine() ? "." : " (but realmEngine is legacy, so it waits)."));
+        Feedback.tell(context.getSource(), "Round " + game.round + " on " + sim.mapId + ". The next in " + seconds / 60 + ":" + String.format("%02d", seconds % 60) + ".");
         for (Kingdom k : game.kingdoms) {
             int nodes = game.ownedNodes(k.id).size();
             if (k.minor && nodes == 0) {
@@ -152,9 +153,6 @@ public final class SimCommands {
                 + placed + " placed in the world.");
         if (placed < sim.game.nodes.size()) {
             Feedback.detail(context.getSource(), "Place the rest where they stand with /realm sim place <node> (/realm sim unplaced lists them).");
-        }
-        if (!KingdomConfig.simEngine()) {
-            Feedback.detail(context.getSource(), "It plays only once realmEngine is sim, in config/ddkingdom-common.toml.");
         }
         return 1;
     }
@@ -279,6 +277,34 @@ public final class SimCommands {
         }
         realm(context).setDirty();
         Feedback.tell(context.getSource(), k.name + ": " + what + " " + amount + ".");
+        return 1;
+    }
+
+    private static int raid(CommandContext<CommandSourceStack> context) {
+        Optional<SimRealm> started = started(context);
+        Optional<Node> found = started.flatMap(sim -> node(context, sim));
+        if (found.isEmpty()) {
+            return 0;
+        }
+        SimRealm sim = started.get();
+        Node target = found.get();
+        Optional<Node> from = sim.game.neighbours(target.id).stream().map(sim.game::node)
+                .filter(n -> n.owner != null && !n.owner.equals(target.owner) && n.garrison > 0).max(java.util.Comparator.comparingInt(n -> n.garrison));
+        if (from.isEmpty()) {
+            Feedback.fail(context.getSource(), "Nothing of another faction's with troops borders " + target.name + ".");
+            return 0;
+        }
+        io.github.ranger3462.ddkingdom.sim.Action attack = target.type == io.github.ranger3462.ddkingdom.sim.NodeType.CAPITAL
+                ? io.github.ranger3462.ddkingdom.sim.Action.raid(from.get().id, target.id, from.get().garrison, "gold")
+                : io.github.ranger3462.ddkingdom.sim.Action.capture(from.get().id, target.id, from.get().garrison);
+        try {
+            sim.declare(from.get().owner, attack, System.currentTimeMillis() + 10_000L);
+        } catch (io.github.ranger3462.ddkingdom.sim.Game.RuleException e) {
+            Feedback.fail(context.getSource(), e.getMessage());
+            return 0;
+        }
+        RealmSimTurns.mirror(realm(context), sim);
+        Feedback.tell(context.getSource(), sim.game.kingdom(from.get().owner).name + " from " + from.get().name + " attack " + target.name + " in 10 seconds.");
         return 1;
     }
 

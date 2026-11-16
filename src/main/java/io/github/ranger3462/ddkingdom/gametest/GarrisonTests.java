@@ -91,7 +91,7 @@ public class GarrisonTests {
             helper.assertTrue(town.stat("fallen") == 1 && RealmGarrison.guards(town).size() == full - 1, "a fallen guard isn't replaced at once");
             RealmGarrison.tick(level, realm, node -> true);
             helper.assertTrue(RealmGarrison.guards(town).size() == full - 1, "not even a moment later");
-            RealmTurns.takeTurn(realm, net.minecraft.util.RandomSource.create(3), 0L);
+            RealmGarrison.newDay(realm); // what each new round does
             RealmGarrison.tick(level, realm, node -> true);
             helper.assertTrue(town.stat("fallen") == 0 && RealmGarrison.guards(town).size() == RealmGarrison.fullStrength(town),
                     "at dawn it's replaced: " + RealmGarrison.guards(town).size());
@@ -106,13 +106,17 @@ public class GarrisonTests {
     @GameTest(batch = "realm_aRaidIsFoughtByTheGarrisonWhichStaysAfter", template = ANY_TEMPLATE, timeoutTicks = 200)
     public static void aRaidIsFoughtByTheGarrisonWhichStaysAfter(GameTestHelper helper) {
         ServerLevel level = helper.getLevel();
-        Realm realm = town(helper, "wardholt");
-        RealmNode town = realm.node("wardholt").orElseThrow();
+        SimFrontier frontier = SimFrontier.of(helper);
+        Realm realm = frontier.realm;
+        RealmNode town = frontier.town;
+        TestArena.loadAround(level, frontier.at, 2 * RealmGarrison.POST_RING);
+        realm.addPost(town, level.getHeightmapPos(net.minecraft.world.level.levelgen.Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, frontier.at));
+        realm.addPost(town, level.getHeightmapPos(net.minecraft.world.level.levelgen.Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, frontier.at.offset(2, 0, 0)));
         try {
+            Realm.Raid raid = frontier.raid();
             RealmGarrison.tick(level, realm, node -> true);
             List<Mob> garrison = RealmGarrison.guards(town);
-            Realm.Raid raid = RealmRaids.declare(realm, "wardholt", 0L).orElseThrow();
-            RealmLiveRaids.LiveRaid live = RealmLiveRaids.start(realm, raid, level);
+            RealmLiveRaids.LiveRaid live = frontier.fight(raid, level);
             RealmLiveRaids.pretendPresent(live, true);
             helper.assertTrue(RealmLiveRaids.guards(live).equals(garrison), "the raid is fought by the guards at their posts, no new ones");
             helper.assertTrue(garrison.stream().allMatch(mob -> mob.getPersistentData().getBoolean(RealmGarrison.ALARM_TAG)), "on alarm");

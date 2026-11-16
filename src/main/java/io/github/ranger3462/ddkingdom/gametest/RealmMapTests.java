@@ -39,7 +39,7 @@ public class RealmMapTests {
         realm.setStat(warren, "military", 60);
         realm.setStat(town, "morale", 2);
         realm.setStat(town, "upgrading", 3);
-        RealmRaids.declare(realm, "riverhold", 0L).orElseThrow();
+        realm.addRaid(new Realm.Raid(DungeonFactions.GOBLINS, "warren", "riverhold", 0, 0L));
 
         helper.assertTrue(RealmMap.warnings(realm, safe).isEmpty(), "a safe town behind the border has no warnings: " + RealmMap.warnings(realm, safe));
         var warnings = String.join(" | ", RealmMap.warnings(realm, town));
@@ -71,9 +71,10 @@ public class RealmMapTests {
         realm.link("hamlet", "warren");
         realm.setStat(hamlet, "tier", 1);
         realm.setStat(hamlet, "defense", 10);
+        realm.setStat(hamlet, "military", 5);
         realm.setStat(warren, "securing", 2);
         java.util.List<RealmMap.Fact> facts = RealmMap.facts(realm, hamlet);
-        helper.assertTrue(facts.get(0).label().equals("Size") && facts.stream().anyMatch(fact -> fact.label().equals("Defense") && fact.hint().startsWith("10 its own")),
+        helper.assertTrue(facts.get(0).label().equals("Size") && facts.stream().anyMatch(fact -> fact.label().equals("Defense") && fact.value().equals("15") && fact.hint().equals("10 its own, 5 from its troops")),
                 "a town's facts lead with its size and show its defense: " + facts);
         helper.assertTrue(RealmMap.facts(realm, warren).stream().anyMatch(fact -> fact.label().equals("Securing") && fact.value().equals("2 turns")),
                 "a stronghold says it's securing");

@@ -1,5 +1,8 @@
 # How the realm's factions decide
 
+> **Replaced (2026-11-16).** This describes the realm's old rules. The realm now plays by the simulator's
+> (`docs/rules/kingdom-stats.txt`, `docs/rules/kingdom-behaviour.txt`); see `realm-cutover.md`. Kept for the history.
+
 Every turn (20 real minutes, `realmTurnMinutes`), the kingdom acts once, then each monster nation acts once. Each side
 looks at the map, gives each of its possible actions a **weight**, and picks one at random in proportion to the
 weights. A weight of 6 against 2 and 2 means a 60% chance, not a certainty, so sides don't act like clockwork. The

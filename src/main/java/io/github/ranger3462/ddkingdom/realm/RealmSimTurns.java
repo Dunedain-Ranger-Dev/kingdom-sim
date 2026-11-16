@@ -17,9 +17,9 @@ import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 
 /**
- * The realm's turns by the simulator's rules (docs/design/realm-cutover.md, phases 2 and 3), when {@code realmEngine}
- * is {@code sim}: a round of the realm's {@link SimRealm} every {@code realmTurnMinutes}, caught up after time away as
- * the old turns are.
+ * The realm's turns, by the simulator's rules (docs/design/realm-cutover.md): a round of the realm's {@link SimRealm}
+ * every {@code realmRoundMinutes}, caught up after time away (up to {@code realmCatchUpTurns}). Nothing happens until
+ * it's started ({@code /realm sim start}).
  * <p>
  * The simulator's state is <b>mirrored</b> onto the realm's own nodes after every round and fight, so everything in
  * the world reads it as before: guards, danger, the realm menu and map icons, live raids and champions. Each placed
@@ -179,7 +179,7 @@ public final class RealmSimTurns {
      * live fight's scores ({@code fought}), or by the simulator's dice if it was rolled after all. Returns whether it was.
      */
     static boolean decided(Realm realm, Realm.Raid raid, int attack, int defense, boolean fought) {
-        if (!realm.mirrored || realm.sim().isEmpty()) {
+        if (realm.sim().isEmpty()) {
             return false;
         }
         SimRealm sim = realm.sim().get();
@@ -214,6 +214,23 @@ public final class RealmSimTurns {
     }
 
     // ---- The mirror ----
+
+    /** The simulator kingdom a realm faction is (the reverse of {@link #owner}). */
+    public static String kid(String owner) {
+        return OWNERS.entrySet().stream().filter(e -> e.getValue().equals(owner)).map(Map.Entry::getKey).findFirst().orElse(owner);
+    }
+
+    /** A faction's takings a round, by the simulator: its nodes' output, and its troops' upkeep. Nothing before it's started. */
+    public static RealmEconomy.Income income(Realm realm, String faction) {
+        if (realm.sim().isEmpty() || realm.sim().get().game.kingdom(kid(faction)) == null) {
+            return new RealmEconomy.Income(0, 0, 0, 0, 0);
+        }
+        Game game = realm.sim().get().game;
+        String kid = kid(faction);
+        Game.Output in = game.income(kid, false);
+        Game.Upkeep up = game.kingdom(kid).minor ? new Game.Upkeep(0, 0, 0) : game.upkeep(kid);
+        return new RealmEconomy.Income((int) Math.round(in.food()), (int) Math.round(in.gold()), (int) Math.round(in.prod()), (int) up.food(), (int) up.gold());
+    }
 
     /** The realm faction a simulator kingdom is ({@link RealmNode#NONE} for no one). */
     public static String owner(String kid) {
@@ -255,8 +272,8 @@ public final class RealmSimTurns {
 
     /** Copies the simulator's state onto the realm's nodes, links, purses and raids. */
     public static void mirror(Realm realm, SimRealm sim) {
-        realm.mirrored = true;
         Game game = sim.game;
+        realm.lastTurnMillis = sim.lastTurnMillis; // the menu's clock
         Map<String, Integer> away = new LinkedHashMap<>();
         game.held.forEach(b -> away.merge(b.from, b.troops, Integer::sum));
         // Nodes: the placed simulator nodes, and nothing else.

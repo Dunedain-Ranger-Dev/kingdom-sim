@@ -19,7 +19,7 @@ import io.github.ranger3462.ddkingdom.sim.SimMap;
  * The realm played by the simulator's rules (docs/design/realm-cutover.md, phase 2): an open-ended simulator game on a
  * real-time clock, a round a turn. Attacks on the player kingdom with a player near are held, and settled at dusk, half
  * a turn after they're declared; every other fight is rolled at once. No Minecraft here, so it can be tested on its own;
- * {@link Realm} saves it with the world, and {@link RealmTurns} runs it when {@code realmEngine} is {@code sim}.
+ * {@link Realm} saves it with the world, and {@link RealmSimTurns} runs it.
  */
 public final class SimRealm {
     /** The map the server's world is built on. */
@@ -110,6 +110,20 @@ public final class SimRealm {
         }
         takeLog();
         changedHands(owners);
+    }
+
+    /**
+     * Declares an attack outside the simulator's own turns, held until {@code dusk} (real time): an operator's raid, or a
+     * test's. It's checked as an AI's attack would be ({@link Game#declare}).
+     */
+    public Game.HeldBattle declare(String kid, io.github.ranger3462.ddkingdom.sim.Action attack, long dusk) {
+        Map<String, String> owners = owners();
+        Game.HeldBattle b = game.declare(kid, attack);
+        this.dusk.put(b.id, dusk);
+        events.add(new Event(game.round, kid, "held", name(kid) + " march on " + game.node(b.target).name + "! The fight comes at dusk.", true));
+        takeLog();
+        changedHands(owners);
+        return b;
     }
 
     /** Settles, with the dice, every held fight whose dusk has come by {@code now}, but those being fought in the world. */
