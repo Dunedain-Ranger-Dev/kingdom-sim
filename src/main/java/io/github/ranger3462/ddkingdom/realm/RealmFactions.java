@@ -56,10 +56,10 @@ public final class RealmFactions {
     public record Traits(String id, String name, String capital, String leader, String champion, double growth, double aggression,
             double attackBar, Targets targets, double weakBar, boolean fortifyAfterCapture, double retake, double reserve, boolean roams,
             int homeRadius, double tithe, double militaryBonus, double raiseDead, int blight, double burstRatio, List<String> mobs,
-            String bossFaction, String affinity) {
+            String bossFaction, String affinity, boolean friendly) {
         /** For a faction with no file: average in every way. */
         public static final Traits GENERIC = new Traits("", "", "", "", "", 1.0, 1.0, 0.5, Targets.KINGDOM_FIRST, 0.75, false, 0.5, 0.2, false,
-                0, 0.0, 0.0, 0.0, 0, 0.0, List.of(), "", "");
+                0, 0.0, 0.0, 0.0, 0, 0.0, List.of(), "", "", false);
 
         /** The faction's name in the news: its own, or its id ("the goblins"). */
         public String displayName() {
@@ -85,7 +85,7 @@ public final class RealmFactions {
                     GsonHelper.getAsDouble(json, "tithe", d.tithe), GsonHelper.getAsDouble(json, "military_bonus", d.militaryBonus),
                     GsonHelper.getAsDouble(json, "raise_dead", d.raiseDead), GsonHelper.getAsInt(json, "blight", d.blight),
                     GsonHelper.getAsDouble(json, "burst_ratio", d.burstRatio), List.copyOf(mobs), GsonHelper.getAsString(json, "boss_faction", ""),
-                    GsonHelper.getAsString(json, "affinity", ""));
+                    GsonHelper.getAsString(json, "affinity", ""), GsonHelper.getAsBoolean(json, "friendly", false));
         }
     }
 
@@ -97,6 +97,14 @@ public final class RealmFactions {
     public static Traits get(String faction) {
         Traits traits = LOADED.get(faction);
         return traits != null ? traits : Traits.parse(faction, new JsonObject());
+    }
+
+    /**
+     * Whether a faction is friendly to the kingdom ({@code friendly} in its file: the dwarves): its land is safe ground,
+     * not monster land (RealmLevels).
+     */
+    public static boolean friendly(String faction) {
+        return get(faction).friendly();
     }
 
     /** The monster nations a node can belong to: every dungeon faction, and every faction with a file but the kingdom. */

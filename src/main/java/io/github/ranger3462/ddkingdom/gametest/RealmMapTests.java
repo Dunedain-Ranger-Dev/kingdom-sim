@@ -78,8 +78,11 @@ public class RealmMapTests {
                 "a town's facts lead with its size and show its defense: " + facts);
         helper.assertTrue(RealmMap.facts(realm, warren).stream().anyMatch(fact -> fact.label().equals("Securing") && fact.value().equals("2 turns")),
                 "a stronghold says it's securing");
-        String goblins = RealmMap.about(io.github.ranger3462.ddkingdom.realm.RealmFactions.get(DungeonFactions.GOBLINS));
-        helper.assertTrue(goblins.contains("Grows fast") && goblins.contains("45%+") && goblins.contains("Secures what it takes"), "goblins: " + goblins);
+        String goblins = io.github.ranger3462.ddkingdom.realm.SimFactionText.about(DungeonFactions.GOBLINS);
+        helper.assertTrue(goblins.contains("Grows fast") && goblins.contains("50%+") && goblins.contains("Secures what it takes"), "goblins, as the simulator plays them: " + goblins);
+        String bandits = io.github.ranger3462.ddkingdom.realm.SimFactionText.about("bandits");
+        helper.assertTrue(bandits.startsWith("Comes and goes") && io.github.ranger3462.ddkingdom.realm.SimFactionText.about("dwarves").contains("Razes what it takes"),
+                "minor factions and the dwarves have cards too: " + bandits);
         CompoundTag nation = realm.nations().isEmpty() ? new CompoundTag() : RealmMap.build(realm).getList("nations", Tag.TAG_COMPOUND).getCompound(0);
         helper.assertTrue(nation.getString("about").equals(goblins) && !nation.getString("leader").isEmpty(), "the nation's card carries it: " + nation);
         realm.setOwner(hamlet, DungeonFactions.GOBLINS);

@@ -122,7 +122,7 @@ public final class RealmMap {
             entry.putString("leader", traits.leader());
             entry.putString("champion", traits.champion());
             entry.putString("capital", traits.capital());
-            entry.putString("about", about(traits));
+            entry.putString("about", SimFactionText.about(nation));
             entry.putBoolean("marching", realm.nodes().stream().anyMatch(node -> nation.equals(node.owner()) && node.stat("bursting") > 0));
             entry.put("purse", purse(realm, nation));
             nations.add(entry);
@@ -149,7 +149,7 @@ public final class RealmMap {
             log.add(entry);
         }
         tag.put("log", log);
-        tag.putString("kingdomAbout", about(RealmFactions.get(RealmNode.KINGDOM)));
+        tag.putString("kingdomAbout", SimFactionText.about(RealmNode.KINGDOM));
         tag.put("kingdomPurse", purse(realm, RealmNode.KINGDOM));
         tag.putInt("turn", realm.turn());
         tag.putLong("lastTurn", realm.lastTurnMillis());
@@ -237,42 +237,6 @@ public final class RealmMap {
             }
         });
         return facts;
-    }
-
-    /** How a faction plays, in a line: "Grows fast. Attacks at 45%+ odds, the kingdom first. Secures what it takes." */
-    public static String about(RealmFactions.Traits traits) {
-        List<String> parts = new ArrayList<>();
-        String grows = traits.growth() >= 1.2 ? "Grows fast" : traits.growth() <= 0.85 ? "Grows slowly" : "Grows steadily";
-        parts.add(grows + ".");
-        String whom = switch (traits.targets()) {
-            case ANYONE -> "anyone";
-            case KINGDOM -> "only the kingdom";
-            case KINGDOM_FIRST -> "the kingdom first, other monsters when they're weak";
-            case MONSTERS -> "the monster nations";
-        };
-        String keen = traits.aggression() >= 1.5 ? "Eager to fight: " : traits.aggression() <= 0.8 ? "Cautious: " : "";
-        parts.add(keen + "attacks " + whom + " at " + Math.round(traits.attackBar() * 100) + "%+ odds.");
-        if (traits.militaryBonus() > 0) {
-            parts.add("Hits " + Math.round(traits.militaryBonus() * 100) + "% harder.");
-        }
-        if (traits.fortifyAfterCapture()) {
-            parts.add("Secures what it takes before moving on.");
-        }
-        if (traits.homeRadius() > 0) {
-            parts.add("Stays within " + traits.homeRadius() + " links of home.");
-        }
-        if (traits.burstRatio() > 0) {
-            parts.add("Waits at its capital until it's " + (traits.burstRatio() == 2.0 ? "twice" : traits.burstRatio() + "x") + " as strong, then strikes.");
-        }
-        if (traits.raiseDead() > 0) {
-            parts.add("Raises " + (traits.raiseDead() > 0.3 && traits.raiseDead() < 0.35 ? "a third" : Math.round(traits.raiseDead() * 100) + "%")
-                    + " of the fallen after every battle.");
-        }
-        if (traits.blight() > 0) {
-            parts.add("Blights the land it holds.");
-        }
-        RealmEconomy.Kind.byId(traits.affinity()).ifPresent(kind -> parts.add("Gets twice as much from " + kind.id().replace('_', ' ') + "s."));
-        return String.join(" ", parts);
     }
 
     /** What's bad for the kingdom at a node. */

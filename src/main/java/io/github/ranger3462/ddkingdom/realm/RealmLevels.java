@@ -40,7 +40,8 @@ import net.neoforged.neoforge.event.tick.ServerTickEvent;
  * Area danger levels (DD-100, docs/design/realm.md). Where the realm has nodes, hostile mobs that spawn there get a
  * level from the map, which makes them tougher ({@link #apply}):
  * <ul>
- * <li>Within {@link #SAFE_RADIUS} of a kingdom-held node, distance adds nothing: the kingdom keeps its own ground.</li>
+ * <li>Within {@link #SAFE_RADIUS} of a kingdom-held node, distance adds nothing: the kingdom keeps its own ground. So
+ * does a friendly faction (the dwarves, {@code friendly} in its file): its land is as safe as the kingdom's.</li>
  * <li>Further out, it rises by one every {@link #STEP} blocks from the nearest kingdom node.</li>
  * <li>Near a monster stronghold, it rises more, by the stronghold's military, fading out to {@link #STRONGHOLD_REACH};
  * a kingdom outpost beside it doesn't make that ground safe. Once the stronghold is taken it's no longer the
@@ -94,10 +95,11 @@ public final class RealmLevels {
             }
             anyNode = true;
             double distance = Math.sqrt(node.pos().distSqr(pos));
-            if (node.monsters() && node.stat("blight") > 0 && distance < STRONGHOLD_REACH) {
+            boolean friendly = node.monsters() && RealmFactions.friendly(node.owner());
+            if (node.monsters() && !friendly && node.stat("blight") > 0 && distance < STRONGHOLD_REACH) {
                 blight = Math.max(blight, node.stat("blight") * (1 - distance / STRONGHOLD_REACH));
             }
-            if (node.kingdoms()) {
+            if (node.kingdoms() || friendly) {
                 nearestKingdom = Math.min(nearestKingdom, distance);
             } else if (node.monsters() && node.type == RealmNode.Type.STRONGHOLD && distance < STRONGHOLD_REACH) {
                 strongholdBonus = Math.max(strongholdBonus, (double) node.stat("military") / MILITARY_PER_LEVEL * (1 - distance / STRONGHOLD_REACH));

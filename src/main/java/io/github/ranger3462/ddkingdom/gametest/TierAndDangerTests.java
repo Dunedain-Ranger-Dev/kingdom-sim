@@ -100,6 +100,22 @@ public class TierAndDangerTests {
     }
 
     @GameTest(template = ANY_TEMPLATE)
+    public static void aFriendlyFactionsLandIsSafe(GameTestHelper helper) {
+        var dim = helper.getLevel().dimension();
+        Realm realm = new Realm();
+        realm.add(new RealmNode("haven", RealmNode.Type.TOWN, RealmNode.KINGDOM, dim, BlockPos.ZERO));
+        RealmNode hold = new RealmNode("karak", RealmNode.Type.CAPITAL, "dwarves", dim, new BlockPos(3000, 64, 0));
+        realm.add(hold);
+        realm.setStat(hold, "military", 90);
+        helper.assertTrue(io.github.ranger3462.ddkingdom.realm.RealmFactions.friendly("dwarves") && !io.github.ranger3462.ddkingdom.realm.RealmFactions.friendly("orcs"),
+                "the dwarves are friendly; the orcs aren't");
+        helper.assertTrue(RealmLevels.level(realm, dim, new BlockPos(3000, 64, 0)) == 0, "a dwarven hold is safe ground, far from the kingdom and strong as it is");
+        realm.setOwner(hold, DungeonFactions.ORCS);
+        helper.assertTrue(RealmLevels.level(realm, dim, new BlockPos(3000, 64, 0)) >= RealmLevels.CAPITAL_FLOOR, "an orc capital there isn't");
+        helper.succeed();
+    }
+
+    @GameTest(template = ANY_TEMPLATE)
     public static void levelsMakeMobsTougher(GameTestHelper helper) {
         Zombie zombie = EntityType.ZOMBIE.create(helper.getLevel());
         float health = zombie.getMaxHealth();

@@ -1,6 +1,7 @@
 {
   "name": "dwarves",
   "capital": "Karak Varn",
+  "friendly": true,
   "mobs": [
     "minecraft:vindicator=60@1-4",
     "minecraft:pillager=30@1-3",
