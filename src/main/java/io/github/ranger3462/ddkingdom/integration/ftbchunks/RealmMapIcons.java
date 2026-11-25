@@ -33,9 +33,10 @@ import net.minecraft.world.phys.Vec3;
 
 /**
  * The realm on FTB Chunks' minimap and large map (client only; only loaded with FTB Chunks installed): an icon for
- * every town, stronghold, capital and site in its owner's colour, with a steady red mark on any in trouble (pinned to
- * the minimap's edge when it's off it) and its details on hover; and under the minimap, a line for each raid or march at
- * dusk with its countdown. The "[Realm]" waypoints an earlier version made are cleared away.
+ * every town, stronghold, capital and site in its owner's colour, with its details on hover; a red mark on any in
+ * trouble on the large map, while the minimap marks only the kingdom's own places with a raid due on them (pinned to its
+ * edge when off it), so it isn't covered in marks; and under the minimap, a line for each raid or march at dusk with its
+ * countdown. The "[Realm]" waypoints an earlier version made are cleared away.
  */
 public final class RealmMapIcons {
     /** What the old waypoints were named with. */
@@ -101,12 +102,27 @@ public final class RealmMapIcons {
 
         @Override
         public boolean isIconOnEdge(MapType mapType, boolean outsideVisibleArea) {
-            return mapType.isMinimap() && !node.warnings().isEmpty();
+            return mapType.isMinimap() && marked(mapType);
         }
 
         @Override
         public int getPriority() {
             return node.warnings().isEmpty() ? 0 : 10;
+        }
+
+        /**
+         * Whether the place gets a red mark: on the large map, whenever it's in any trouble; on the minimap, only when
+         * it's the kingdom's and a raid is due on it.
+         */
+        private boolean marked(MapType mapType) {
+            if (node.warnings().isEmpty()) {
+                return false;
+            }
+            if (!mapType.isMinimap()) {
+                return true;
+            }
+            RealmMapClient.Data data = RealmMapClient.latest();
+            return node.kingdoms() && data != null && data.raids().stream().anyMatch(raid -> raid.to().equals(node.id()) && !"kingdom".equals(raid.nation()));
         }
 
         @Override
@@ -138,7 +154,7 @@ public final class RealmMapIcons {
             if (!"town".equals(node.type()) && w >= 6) {
                 graphics.fill(x + w / 2 - 1, y + h / 2 - 1, x + w / 2 + 1, y + h / 2 + 1, a | 0x101010);
             }
-            if (!node.warnings().isEmpty()) {
+            if (marked(mapType)) {
                 Font font = Minecraft.getInstance().font;
                 graphics.drawString(font, "!", x + w - 2, y - 4, a | 0xFF4040, true);
             }
