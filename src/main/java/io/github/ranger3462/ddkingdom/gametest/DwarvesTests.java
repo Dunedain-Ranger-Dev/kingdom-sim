@@ -53,10 +53,10 @@ public class DwarvesTests {
         ItemStack some = new ItemStack(raw.get(), perQuest - 1);
         helper.assertTrue(DwarvenQuests.handIn(standing, player, some) == 0 && some.isEmpty(), "too little Mithril is taken, but finishes nothing");
         helper.assertTrue(standing.standing(player, RealmStanding.DWARVES) == 0 && standing.progress(player, RealmStanding.DWARVES) == perQuest - 1, "yet");
-        ItemStack more = new ItemStack(raw.get(), perQuest * 2 + 1);
+        ItemStack more = new ItemStack(raw.get(), perQuest + 2);
         int done = DwarvenQuests.handIn(standing, player, more);
         helper.assertTrue(done == 2 && standing.standing(player, RealmStanding.DWARVES) == 2 * reward, "the rest finishes two quests: " + done);
-        helper.assertTrue(standing.progress(player, RealmStanding.DWARVES) == perQuest - 1 + perQuest * 2 + 1 - 2 * perQuest, "and the leftover counts towards the next");
+        helper.assertTrue(standing.progress(player, RealmStanding.DWARVES) == 1, "and the one left over counts towards the next");
         helper.assertTrue(standing.standing(UUID.randomUUID(), RealmStanding.DWARVES) == 0, "and it's that player's alone");
         helper.succeed();
     }

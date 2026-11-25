@@ -82,7 +82,8 @@ config switch (`realmEngine = legacy | sim`), so the server never has a broken r
    - Politics for players: each group posts quests; finishing one is `questDone`; each player's standing is kept on
      its own (`realm-politics.md`).
    - KING-22: vampirism and minor factions in the world (bandit camps, vampire towns, danger).
-   - KING-18–21: the Dwarves' capital, standing raised by Mithril quests, the Deep Mines entrance gated on it.
+   - KING-18–21: the Dwarves' capital, standing raised by Mithril quests, the Deep Mines entrance gated on it. Done
+     2026-11-25: see `dwarves.md`.
    - The players' raid on the Kobold hoard (no ticket yet).
 
 ## What happens to the open tickets
