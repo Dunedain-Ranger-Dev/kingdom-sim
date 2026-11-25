@@ -5,5 +5,16 @@
   "item.ddkingdom.town_mage_spawn_egg": "Town Battlemage Spawn Egg",
   "key.categories.ddkingdom": "Kingdom Sim",
   "key.ddkingdom.realm": "Realm Map",
-  "screen.ddkingdom.realm": "The Realm"
+  "screen.ddkingdom.realm": "The Realm",
+  "block.ddkingdom.mine_gate": "Dwarven Mine Gate",
+  "message.ddkingdom.dwarves.quest_done": "The dwarves take your Mithril with thanks (%s quest(s) done). Your standing with them is %s: %s.",
+  "message.ddkingdom.dwarves.mithril_taken": "The dwarves take your Mithril. %s more and their quest is done.",
+  "message.ddkingdom.dwarves.not_at_capital": "This gate only opens at the dwarves' capital.",
+  "message.ddkingdom.dwarves.sealed": "The mine beyond the gate is sealed.",
+  "message.ddkingdom.dwarves.turned_away": "The dwarves turn you away: your standing with them is %s, and they let in only those with %s or more. Bring them Mithril.",
+  "rank.ddkingdom.distrusted": "distrusted",
+  "rank.ddkingdom.neutral": "neutral",
+  "rank.ddkingdom.friendly": "friendly",
+  "rank.ddkingdom.honored": "honored",
+  "rank.ddkingdom.revered": "revered"
 }
