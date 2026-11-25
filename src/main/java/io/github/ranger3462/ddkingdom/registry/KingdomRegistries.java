@@ -3,23 +3,34 @@ package io.github.ranger3462.ddkingdom.registry;
 import io.github.ranger3462.ddkingdom.KingdomSim;
 import io.github.ranger3462.ddkingdom.entity.TownGuard;
 import io.github.ranger3462.ddkingdom.integration.irons.IronsTownMages;
+import io.github.ranger3462.ddkingdom.realm.MineGateBlock;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.MobCategory;
+import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.CreativeModeTabs;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.fml.ModList;
 import net.neoforged.neoforge.common.DeferredSpawnEggItem;
 import net.neoforged.neoforge.event.BuildCreativeModeTabContentsEvent;
 import net.neoforged.neoforge.event.entity.EntityAttributeCreationEvent;
+import net.neoforged.neoforge.registries.DeferredBlock;
 import net.neoforged.neoforge.registries.DeferredHolder;
 import net.neoforged.neoforge.registries.DeferredItem;
 import net.neoforged.neoforge.registries.DeferredRegister;
 
-/** Everything Kingdom Sim adds to the game's registries: the town guards (and, with Iron's Spells, battlemages). */
+/**
+ * Everything Kingdom Sim adds to the game's registries: the town guards (and, with Iron's Spells, battlemages), and the
+ * dwarves' mine gate.
+ */
 public final class KingdomRegistries {
     public static final DeferredRegister<EntityType<?>> ENTITIES = DeferredRegister.create(Registries.ENTITY_TYPE, KingdomSim.MODID);
     public static final DeferredRegister.Items ITEMS = DeferredRegister.createItems(KingdomSim.MODID);
+    public static final DeferredRegister.Blocks BLOCKS = DeferredRegister.createBlocks(KingdomSim.MODID);
+
+    /** The dwarves' mine gate (KING-21): built into their capital, the way into Deep Mines. */
+    public static final DeferredBlock<MineGateBlock> MINE_GATE = BLOCKS.register("mine_gate", MineGateBlock::new);
+    public static final DeferredItem<BlockItem> MINE_GATE_ITEM = ITEMS.registerSimpleBlockItem(MINE_GATE);
 
     /** The town guard (DD-98): a human soldier who turns out when a realm town is raided. */
     public static final DeferredHolder<EntityType<?>, EntityType<TownGuard>> TOWN_GUARD = ENTITIES.register("town_guard",
@@ -35,11 +46,15 @@ public final class KingdomRegistries {
             IronsTownMages.register(modEventBus);
         }
         ENTITIES.register(modEventBus);
+        BLOCKS.register(modEventBus);
         ITEMS.register(modEventBus);
         modEventBus.addListener((EntityAttributeCreationEvent event) -> event.put(TOWN_GUARD.get(), TownGuard.createAttributes().build()));
         modEventBus.addListener((BuildCreativeModeTabContentsEvent event) -> {
             if (event.getTabKey() == CreativeModeTabs.SPAWN_EGGS) {
                 event.accept(TOWN_GUARD_SPAWN_EGG);
+            }
+            if (event.getTabKey() == CreativeModeTabs.FUNCTIONAL_BLOCKS) {
+                event.accept(MINE_GATE_ITEM);
             }
         });
     }
